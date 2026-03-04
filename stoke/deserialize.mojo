@@ -25,7 +25,7 @@ comptime _Base = ImplicitlyDestructible & Movable
 # that should be able to give back fields by name I think
 
 
-struct OptHelp(_Base, Hashable, Copyable, Writable):
+struct OptHelp(Copyable, Hashable, Writable, _Base):
     var help_msg: String
     """Help message to display."""
 
@@ -36,7 +36,7 @@ struct OptHelp(_Base, Hashable, Copyable, Writable):
     """
 
     var long_opt: Optional[String]
-    """The long option name to use, ex: `--my-value`
+    """The long option name to use, ex: `--my-value`.
     
     If this is None, the field name will be used, with `_` converted to `-`.
     Note that if a value is provided, no transformation will be applied to it.
@@ -55,12 +55,13 @@ struct OptHelp(_Base, Hashable, Copyable, Writable):
         default_value: Optional[String] = None,
         long_opt: Optional[String] = None,
         short_opt: Optional[String] = None,
-        is_arg: Bool = False
+        is_arg: Bool = False,
     ):
         self.help_msg = help_msg
         self.default_value = default_value
         self.long_opt = long_opt
         self.short_opt = short_opt
+
 
 trait JsonDeserializable(_Base):
     @staticmethod
@@ -80,7 +81,7 @@ trait JsonDeserializable(_Base):
 
 
 @always_inline
-fn try_deserialize[T: _Base](s: VariadicList[StringString]) -> Optional[T]:
+fn try_deserialize[T: _Base](s: List[StaticString]) -> Optional[T]:
     return try_deserialize[T](Parser(s))
 
 
@@ -92,7 +93,9 @@ fn try_deserialize[
     except:
         return None
 
+
 # TODO: version that takes a list
+
 
 @always_inline
 fn deserialize[T: _Base](s: VariadicList[StaticString], out res: T) raises:
@@ -131,11 +134,45 @@ fn __all_dtors_are_trivial[T: AnyType]() -> Bool:
             return False
     return True
 
+
 fn __to_ident(s: String) -> String:
     if s.startswith("--"):
         var fixed = s.replace("-", "_")
         return String(fixed[2:])
-    return s
+    elif s.startswith("-"):
+        var fixed = s.replace("-", "_")
+        return String(fixed[1:])
+
+    var fixed = s.replace("-", "_")
+    return fixed
+
+
+fn __possible_idents[T: JsonDeserializable]() raises -> Dict[String, String]:
+    """ """
+    comptime metadata = T.opt_metadata()
+    comptime field_names = struct_field_names[T]()
+    var ret: Dict[String, String] = {}
+    comptime for i in range(0, len(field_names)):
+        comptime name = field_names[i]
+
+        comptime opts = metadata.get(name)
+        if opts:
+            if opts.value().short_opt:
+                if opts.value().short_opt.value() in ret:
+                    raise Error(
+                        "Duplicate key: " + opts.value().short_opt.value()
+                    )
+                ret[opts.value().short_opt.value()] = String(name)
+            if opts.value().long_opt:
+                if opts.value().long_opt.value() in ret:
+                    raise Error(
+                        "Duplicate key: " + opts.value().long_opt.value()
+                    )
+                ret[opts.value().long_opt.value()] = String(name)
+
+        ret[__to_ident(name)] = String(name)
+    return ret^
+
 
 @always_inline
 fn _default_deserialize[
@@ -178,19 +215,25 @@ fn _default_deserialize[
         # maybe an optimization since the InlineArray ctor uses a for loop
         # but according to the IR this will just inline the computed values
         var seen = materialize[InlineArray[Bool, field_count](fill=False)]()
+        comptime metadata = downcast[T, JsonDeserializable].opt_metadata()
+        var possible_idents = __possible_idents[
+            downcast[T, JsonDeserializable]
+        ]()
 
         # while p.peek() != `}`:
         while not p.is_done():
-            var ident = __to_ident(p.read_string())
+            var ident = possible_idents.get(__to_ident(p.read_string()))
             # TODO: this ident is the "--name", or "-n", needs conversion to struct name
             # TODO: strengths the long-opt only convention for now
             # p.expect(`:`)
+            if not ident:
+                raise Error("Unexpected field: ", ident)
 
             var matched = False
             comptime for i in range(field_count):
                 comptime name = field_names[i]
 
-                if ident == name:
+                if ident.value() == name:
                     ref seen_i = seen.unsafe_get(i)
                     if unlikely(seen_i):
                         raise Error("Duplicate key: ", name)
@@ -214,22 +257,44 @@ fn _default_deserialize[
             #     p.expect(`,`)
 
         comptime for i in range(field_count):
+            # We didn't find a key value pairing
             if not seen.unsafe_get(i):
-                comptime if __is_optional[field_types[i]]() or __is_default[
-                    field_types[i]
-                ]():
+                comptime metadata = downcast[
+                    T, JsonDeserializable
+                ].opt_metadata().get(field_names[i])
+
+                # TODO: make issue for this?
+                # Must wrap in bool to avoid incompatable type error
+                comptime if Bool(metadata) and Bool(
+                    metadata.value().default_value
+                ):
+                    # First try to get a default from the metadata
+                    print("Using the default from the metadata")
+                    comptime default = metadata.value().default_value.value()
+                    ref field = __struct_field_ref(i, s)
+                    var p = Parser([default])
+                    field = downcast[
+                        type_of(field), JsonDeserializable
+                    ].from_json(p)
+                elif __is_optional[field_types[i]]() or conforms_to(
+                    field_types[i], Defaultable
+                ):
+                    # Then check if defaultable or optional
+                    print("Using the Defaultable/Optional default")
                     ref field = __struct_field_ref(i, s)
                     field = downcast[type_of(field), Defaultable]()
                 else:
+                    # Explode
                     comptime name = field_names[i]
-                    print(materialize[downcast[T, JsonDeserializable].opt_metadata()]()[name])
                     raise Error("Missing key: ", name)
 
         # p.expect(`}`)
 
+
 # TODO(next):
 # Stopping here, need to update the rest of the extension methods, and add more parser methods for parsing each of the types from strings
 # Might be able to steal stuff from my last attempt at this
+
 
 fn _deserialize_impl[
     options: ParseOptions, //, T: _Base
@@ -278,7 +343,6 @@ __extension Int(JsonDeserializable):
         return {}
 
 
-
 __extension Bool(JsonDeserializable):
     @staticmethod
     fn from_json[
@@ -293,7 +357,6 @@ __extension Bool(JsonDeserializable):
     @staticmethod
     fn opt_metadata() -> Dict[String, OptHelp]:
         return {}
-
 
 
 # __extension SIMD(JsonDeserializable):
