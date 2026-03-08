@@ -45,6 +45,16 @@ struct GetSports(JsonDeserializable, Defaultable, Writable):
             "last_name": OptHelp(help_msg="Last Name"),
             "sports": OptHelp(help_msg="Sports played", is_arg=True),
         }
+    
+@fieldwise_init
+struct Main(JsonDeserializable, Defaultable, Writable):
+    var example: String
+    var number: Int
+
+    fn __init__(out self):
+        self.example = ""
+        self.number = 0
+
 
 def stoke_get_languages(var argv: List[String]):
     var args = Parser.parse[GetLanguages](argv^)
@@ -52,6 +62,10 @@ def stoke_get_languages(var argv: List[String]):
 
 def stoke_get_sports(var argv: List[String]):
     var args = Parser.parse[GetSports](argv^)
+    print(args)
+
+def stoke_main(var argv: List[String]):
+    var args = Parser.parse[Main](argv^)
     print(args)
 
 def main() raises:

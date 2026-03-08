@@ -70,16 +70,26 @@ struct Stoke(Movable):
         # TODO: wire up with sys args to get subcommaond to run, also fix the subcommand names
     
     def run(self) raises:
-        var cmd_idx = self.select_command()
-        self.commands[cmd_idx].cmd_fn(List(self.argv[1:]))
+        var cmd_idx, is_main = self.select_command()
+        if is_main:
+            self.commands[cmd_idx].cmd_fn(List(self.argv))
+        else:
+            self.commands[cmd_idx].cmd_fn(List(self.argv[1:]))
 
     
-    def select_command(read self) raises -> Int:
+    def select_command(read self) raises -> Tuple[Int, Bool]:
         if len(self.argv) == 0:
             raise Error("No arguments passed in")
+        
+        var main_idx: Optional[Int] = None
 
         for i in range(0, len(self.commands)):
             if self.commands[i].cmd_name == self.argv[0]:
-                return i
+                return i, False
+            elif self.commands[i].cmd_name == "main":
+                main_idx = i
+        
+        if main_idx:
+            return main_idx.value(), True
 
         raise Error(t"No matching command for {self.argv[0]}")

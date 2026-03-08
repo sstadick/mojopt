@@ -20,10 +20,7 @@ from stoke.parser import Parser, ParseOptions
 
 # TODO: help message
 # TODO: baked in support for set type opts and args
-# TODO: Subcommands
 # TODO: Feature that allows for an argument list to be passed in via a file
-# TODO: no way to make an opt required, it will fall back to the Defaultable
-# TODO: use something like the test suite method to do subcommands, parse the fun names to get the subcommand names? Or have the fns return a string literal or something? 
 
 @fieldwise_init
 struct Args(JsonDeserializable, Defaultable):
