@@ -21,6 +21,57 @@ from stoke.parser import Parser, ParseOptions
 # TODO: help message
 # TODO: baked in support for set type opts and args
 # TODO: Feature that allows for an argument list to be passed in via a file
+# TODO: check if importing a fn makes it in scope for __functions_in_module
+
+@fieldwise_init
+struct Args2(JsonDeserializable, Defaultable):
+    var my_flag: Opt[Bool, help_msg="It's mine", default_value=False, short_opt="f"]
+    var my_string: Opt[String, help_msg="Also mine", default_value="FooBar", short_opt="s"]
+    var my_custom: Opt[CustomType, help_msg="Very custom"]
+    var opt_list: Opt[List[Int], help_msg="Repeatable option", default_value=[10, 11, 12], short_opt="l"]
+    var arg_one: Opt[Int, help_msg="First positional arg", is_arg=True, default_value=99]
+    var remaining_args: Opt[List[Int], help_msg="Remaining args", is_arg=True, default_value=[42, 43]]
+
+    fn __init__(out self):
+        self.my_flag = False 
+        self.my_string = "bar"
+        self.my_custom = CustomType()
+        self.opt_list = []
+        self.arg_one = 1
+        self.remaining_args = []
+
+    @staticmethod
+    fn opt_metadata() -> Dict[String, OptHelp]:
+        return {
+            "my_flag": OptHelp(help_msg="it's mine", default_value="False", short_opt="f"),
+            "my_string": OptHelp(help_msg="it's also mine", default_value="FooBar", short_opt="s"),
+            "opt_list": OptHelp(help_msg="repreated opts", short_opt="l", default_value="10,11,12"),
+            "arg_one": OptHelp(help_msg="First argument", is_arg=True, default_value="99"),
+            "remaining_args": OptHelp(help_msg="Remaining arguments", is_arg=True, default_value="42,43")
+        }
+    
+
+@fieldwise_init
+struct CustomType(JsonDeserializable, Defaultable, Equatable, Writable):
+    var first_name: String
+    var last_name: String
+
+    fn __init__(out self):
+        self.first_name = "Darth"
+        self.last_name = "Vadar"
+
+    @staticmethod
+    fn from_json[
+        options: ParseOptions, //
+    ](mut p: Parser[options], out s: Self) raises:
+        # __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(s))
+        s = Self()
+        s.first_name = p.read_string()
+        s.last_name = p.read_string()
+
+    @staticmethod
+    fn opt_metadata() -> Dict[String, OptHelp]:
+        return {}
 
 @fieldwise_init
 struct Args(JsonDeserializable, Defaultable):

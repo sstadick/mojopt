@@ -221,25 +221,17 @@ fn _default_deserialize[
 
     comptime if is_array:
         # Assumes that args have been passed in in order of the struct
-        # p.expect(`[`)
         comptime for i in range(field_count):
             ref field = __struct_field_ref(i, s)
             comptime TField = downcast[type_of(field), _Base]
             field = _deserialize_impl[TField](p)
-
-        #     p.skip_whitespace()
-        #     if i < field_count - 1:
-        #         p.expect(`,`)
-        # p.expect(`]`)
     else:
         # Fill via key-value pairs
-        # p.expect(`{`)
 
         # maybe an optimization since the InlineArray ctor uses a for loop
         # but according to the IR this will just inline the computed values
         var seen = materialize[InlineArray[Bool, field_count](fill=False)]()
         comptime type_metadata = downcast[T, JsonDeserializable].opt_metadata()
-        print(materialize[type_metadata]())
         var possible_idents = materialize[__possible_idents[
             downcast[T, JsonDeserializable]
         ]()]()
@@ -248,8 +240,13 @@ fn _default_deserialize[
         # while p.peek() != `}`:
         while not p.is_done():
             var candidate_ident = p.read_string()
+            if candidate_ident== "--help" or candidate_ident== "-h":
+                # TODO: need a "print_help[T]()" fn that can be called
+                print("HELP")
+            else:
+                print(t"ident {candidate_ident}")
+
             var ident = possible_idents.get(__to_ident(candidate_ident))
-            # p.expect(`:`)
 
             if not ident:
                 # Actually might be positional argument
@@ -304,7 +301,6 @@ fn _default_deserialize[
             #     p.expect(`,`)
         
         # Check for positional arguments
-        print(materialize[type_metadata]())
         if positionals:
             var pp = Parser[ParseOptions(parsing_mode=ParseOptions.ParsingArguments)](positionals^)
             comptime for i in range(field_count):
@@ -313,7 +309,6 @@ fn _default_deserialize[
                     break
 
                 comptime if Bool(metadata) and metadata.value().is_arg:
-                    print(t"trying to parse {materialize[field_names[i]]()} as arg")
                     ref seen_i = seen.unsafe_get(i)
                     seen_i = True
                     ref field = __struct_field_ref(i, s)
@@ -324,10 +319,8 @@ fn _default_deserialize[
                         raise Error(t"Can't parse positional argument {materialize[field_names[i]]()}: {e}")
                 else:
                     print(metadata)
-                    print(t"not trying to parse {materialize[field_names[i]]()} as arg")
 
             if not pp.is_done():
-                print(pp.data)
                 raise Error("Unexpected fields: ", pp.data)
 
 
@@ -344,7 +337,6 @@ fn _default_deserialize[
                     metadata.value().default_value
                 ):
                     # First try to get a default from the metadata
-                    print("Using the default from the metadata")
                     comptime default = metadata.value().default_value.value()
                     ref field = __struct_field_ref(i, s)
                     var p = Parser[ParseOptions(parsing_mode=ParseOptions.ParsingDefaults)]([default])
@@ -365,13 +357,6 @@ fn _default_deserialize[
                     comptime name = field_names[i]
                     raise Error("Missing key: ", name)
 
-        # p.expect(`}`)
-
-
-# TODO(next):
-# Stopping here, need to update the rest of the extension methods, and add more parser methods for parsing each of the types from strings
-# Might be able to steal stuff from my last attempt at this
-
 
 fn _deserialize_impl[
     options: ParseOptions, //, T: _Base
@@ -379,10 +364,8 @@ fn _deserialize_impl[
     comptime assert is_struct_type[T](), non_struct_error
 
     comptime if conforms_to(T, JsonDeserializable):
-        print("Calling from json")
         s = downcast[T, JsonDeserializable].from_json(p)
     else:
-        print("gettin weird")
         s = _default_deserialize[T, False](p)
 
 
@@ -396,7 +379,6 @@ __extension String(JsonDeserializable):
     fn from_json[
         options: ParseOptions, //
     ](mut p: Parser[options], out s: Self) raises:
-        print("reading string")
         s = p.read_string()
 
     @staticmethod
@@ -413,7 +395,6 @@ __extension Int(JsonDeserializable):
     fn from_json[
         options: ParseOptions, //
     ](mut p: Parser[options], out s: Self) raises:
-        print("reading int")
         s = p.read_int()
 
     @staticmethod
@@ -431,7 +412,6 @@ __extension Bool(JsonDeserializable):
     fn from_json[
         options: ParseOptions, //
     ](mut p: Parser[options], out s: Self) raises:
-        print("reading bool")
         s = p.read_bool()
 
     @staticmethod
@@ -578,20 +558,16 @@ __extension List(JsonDeserializableAppendable):
     fn from_json[
         options: ParseOptions, //
     ](mut p: Parser[options], out s: Self) raises:
-        print("Reading list")
         s = Self()
         
         comptime if options.parsing_mode == ParseOptions.ParsingArguments:
-            print("args")
             # If we are argument parsing, consume all the values possible
             while not p.is_done():
                 s.append(_deserialize_impl[downcast[Self.T, _Base]](p))
         elif options.parsing_mode == ParseOptions.ParsingOptions:
-            print("opts")
             # If we are still option parsing, lists will come as kv pairs still
             s.append(_deserialize_impl[downcast[Self.T, _Base]](p))
         elif options.parsing_mode == ParseOptions.ParsingDefaults:
-            print("default")
             # Parsing a user defined default value, which will be a comma delimited string
             for v in p.read_string().split(","):
                 var default_parser = Parser[options]([String(v)])
