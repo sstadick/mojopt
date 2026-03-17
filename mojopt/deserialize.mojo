@@ -214,18 +214,20 @@ fn __all_dtors_are_trivial[T: AnyType]() -> Bool:
 
 
 fn __to_ident(s: String) -> String:
-    if s.startswith("--"):
-        var fixed = s.replace("-", "_")
-        return String(fixed[2:])
-    elif s.startswith("-"):
-        var fixed = s.replace("-", "_")
-        return String(fixed[1:])
-
-    var fixed = s.replace("-", "_")
+    var prefix_stripped = __strip_prefix_dashes(s)
+    var fixed = prefix_stripped.replace("-", "_")
     return fixed
 
 fn __to_display_name(s: String) -> String:
     return s.replace("_", "-")
+
+fn __strip_prefix_dashes(s: String) -> String:
+    if s.startswith("--"):
+        return String(s[2:])
+    elif s.startswith("-"):
+        return String(s[1:])
+    return s
+
 
 
 fn __at_most_one_args_appendable[T: MojOptDeserializable]() -> Bool:
@@ -335,7 +337,7 @@ fn _default_deserialize[
 
 
                 comptime if is_optable and downcast[field_type, Optable].opt_is_arg:
-                    raise MojOptErr(Error(t"{ident} is a positional argument, not an option."))
+                    raise MojOptErr(Error(t"{candidate_ident} is a positional argument, not an option."))
 
                 
                 ref field = __struct_field_ref(i, s)
@@ -347,7 +349,7 @@ fn _default_deserialize[
                     trait_downcast[MojOptDeserializableAppendable](field).append_parse(p)
                 elif _type_is_eq[TField, Bool]() or (is_optable and downcast[field_type, Optable].opt_is_flag):
                     if seen_i:
-                        raise MojOptErr(Error(t"Duplicate option: --{ident}"))
+                        raise MojOptErr(Error(t"Duplicate option: {candidate_ident}"))
                     comptime if is_optable and Bool(downcast[field_type, Optable].opt_default):
                         # Invert whatever the supplied default was
                         comptime value = downcast[field_type, Optable].opt_default.value()
@@ -368,11 +370,11 @@ fn _default_deserialize[
                         field = rebind[TField](True)
                 else:
                     if seen_i:
-                        raise MojOptErr(Error(t"Duplicate option: --{ident}"))
+                        raise MojOptErr(Error(t"Duplicate option: {candidate_ident}"))
                     try:
                         field = _deserialize_impl[TField](p)
                     except e:
-                        raise MojOptErr(Error(t"Can't parse --{ident}'s value:\n\t{e}"))
+                        raise MojOptErr(Error(t"Can't parse {candidate_ident}'s value:\n\t{e}"))
 
 
                 seen_i = True

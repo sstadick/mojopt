@@ -1,16 +1,14 @@
 
 from std.testing import assert_equal, assert_raises, assert_true, assert_false, TestSuite
 
-from mojopt.deserialize import MojOptDeserializable, Opt 
+from mojopt.deserialize import MojOptDeserializable, Opt, LoadExts, get_help
 from mojopt.parser import Parser, ParseOptions
-from mojopt.help import get_help
+from mojopt.error import MojOptErr
 
 from mojopt.ext import *
 
-def test_limited() raises:
-    comptime x: List[Int] = [1, 2, 3]
-    comptime if conforms_to(type_of(x), MojOptDeserializable):
-        print("CONFORMS")
+# Needed to force the loading of extensions
+comptime Exts = LoadExts().FullConformance
 
 
 # Tests:
@@ -62,10 +60,9 @@ struct CustomType(MojOptDeserializable, Defaultable, Equatable, Writable, Copyab
         self = opt.value.copy()
 
     @staticmethod
-    fn parse[
+    fn from_opts[
         options: ParseOptions, //
-    ](mut p: Parser[options], out s: Self) raises:
-        # __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(s))
+    ](mut p: Parser[options], out s: Self) raises MojOptErr:
         s = Self()
         s.first_name = p.read_string()
         s.last_name = p.read_string()
@@ -84,7 +81,7 @@ def test_mojopt_basic() raises :
         s("Doe")
     ])
     
-    var args = Args.parse(parser)
+    var args = Args.from_opts(parser)
 
     assert_true(args.my_flag.value)
     assert_equal(args.my_string.value, "blah")
@@ -100,7 +97,7 @@ def test_mojopt_basic_short_opts() raises:
         s("Doe")
     ])
     
-    var args = Args.parse(parser)
+    var args = Args.from_opts(parser)
 
     assert_true(args.my_flag.value)
     assert_equal(args.my_string.value, "blah")
@@ -115,7 +112,7 @@ def test_mojopt_flag_default() raises :
         s("Doe")
     ])
     
-    var args = Args.parse(parser)
+    var args = Args.from_opts(parser)
 
     assert_false(args.my_flag.value)
     assert_equal(args.my_string.value, "blah")
@@ -131,7 +128,7 @@ def test_mojopt_mixed_order() raises:
         s("--my-flag"),
     ])
     
-    var args = Args.parse(parser)
+    var args = Args.from_opts(parser)
 
     assert_true(args.my_flag.value)
     assert_equal(args.my_string.value, "blah")
@@ -145,7 +142,7 @@ def test_mojopt_opt_helper_default() raises:
         s("--my-flag"),
     ])
     
-    var args = Args.parse(parser)
+    var args = Args.from_opts(parser)
 
     assert_true(args.my_flag.value)
     assert_equal(args.my_string.value, "FooBar")
@@ -159,8 +156,8 @@ def test_mojopt_defaultable_default() raises:
     ])
     
     # Confirm it DOES NOT fall back to using defaultable
-    with assert_raises(contains="Missing key"):
-        var args = Args.parse(parser)
+    with assert_raises(contains="Missing required option"):
+        var _ = Args.from_opts(parser)
 
 def test_mojopt_unexpected_value_after_flag() raises:
     var parser = Parser([
@@ -175,7 +172,7 @@ def test_mojopt_unexpected_value_after_flag() raises:
     
 
     with assert_raises(contains="Can't parse positional argument"):
-        var args = Args.parse(parser)
+        var _ = Args.from_opts(parser)
 
 def test_mojopt_unexpected_value_after_opt() raises:
     var parser = Parser([
@@ -190,7 +187,7 @@ def test_mojopt_unexpected_value_after_opt() raises:
     
 
     with assert_raises(contains="Can't parse positional argument"):
-        var args = Args.parse(parser)
+        var _ = Args.from_opts(parser)
 
 def test_mojopt_basic_positional_args() raises:
     var parser = Parser([
@@ -203,7 +200,7 @@ def test_mojopt_basic_positional_args() raises:
         s("42")
     ])
     
-    var args = Args.parse(parser)
+    var args = Args.from_opts(parser)
 
     assert_true(args.my_flag.value)
     assert_equal(args.my_string.value, "blah")
@@ -225,7 +222,7 @@ def test_mojopt_basic_positional_args_list() raises:
         s("3"),
     ])
     
-    var args = Args.parse(parser)
+    var args = Args.from_opts(parser)
 
     assert_true(args.my_flag.value)
     assert_equal(args.my_string.value, "blah")
@@ -247,7 +244,7 @@ def test_mojopt_jumbled_positional_args_list() raises:
         s("3"),
     ])
     
-    var args = Args.parse(parser)
+    var args = Args.from_opts(parser)
 
     assert_true(args.my_flag.value)
     assert_equal(args.my_string.value, "blah")
@@ -277,7 +274,7 @@ def test_mojopt_basic_repeated_opt_list() raises:
         s("3"),
     ])
     
-    var args = Args.parse(parser)
+    var args = Args.from_opts(parser)
 
     assert_true(args.my_flag.value)
     assert_equal(args.my_string.value, "blah")
@@ -308,7 +305,7 @@ def test_mojopt_jumbled_repeated_opt_list() raises:
         s("8"),
     ])
     
-    var args = Args.parse(parser)
+    var args = Args.from_opts(parser)
 
     assert_true(args.my_flag.value)
     assert_equal(args.my_string.value, "blah")
@@ -331,7 +328,7 @@ def test_mojopt_default_repeated_opt_list() raises:
         s("3"),
     ])
     
-    var args = Args.parse(parser)
+    var args = Args.from_opts(parser)
 
     assert_true(args.my_flag.value)
     assert_equal(args.my_string.value, "blah")
@@ -351,7 +348,7 @@ def test_mojopt_default_args_list() raises:
         s("42"),
     ])
     
-    var args = Args.parse(parser)
+    var args = Args.from_opts(parser)
 
     assert_true(args.my_flag)
     assert_equal("blah", args.my_string)
@@ -378,10 +375,9 @@ struct ArgsBare(MojOptDeserializable, Defaultable):
     
 def test_bare_args() raises:
     var parser = Parser(["--my-int", "4", "--complex", "snake", "-c", "snail", "--complex", "cow"])
-    var args = ArgsBare.parse(parser)
+    var args = ArgsBare.from_opts(parser)
     assert_equal(args.my_int, 4)
     assert_equal(args.complex.value, ["snake", "snail", "cow"])
 
 def main() raises:
-    # TestSuite.discover_tests[__functions_in_module()]().run()
-    test_bare_args()
+    TestSuite.discover_tests[__functions_in_module()]().run()
