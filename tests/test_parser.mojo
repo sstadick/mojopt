@@ -1,6 +1,7 @@
 
 from std.testing import assert_equal, assert_raises, assert_true, assert_false, TestSuite
 
+from mojopt.default import reflection_default
 from mojopt.deserialize import MojOptDeserializable, Opt, LoadExts, get_help
 from mojopt.parser import Parser, ParseOptions
 from mojopt.error import MojOptErr
@@ -17,10 +18,8 @@ from mojopt.ext import *
 # - Long and short opts
 # - Subcommands
 
-# TODO: help message
 # TODO: baked in support for set type opts and args
 # TODO: Feature that allows for an argument list to be passed in via a file
-# TODO: check if importing a fn makes it in scope for __functions_in_module
 
 @fieldwise_init
 struct Args(MojOptDeserializable, Defaultable):
@@ -406,12 +405,14 @@ def test_bare_args() raises:
 @fieldwise_init
 struct ArgsBareType(MojOptDeserializable, Defaultable):
     var my_num: Int 
-    var complex: Opt[BareComplex, help="This is a complex one", long="complex", short="c", default_value=["--animal", "cat", "--thing", "chair"]]
-    # var complex: BareComplex 
+    var complex: Opt[BareComplex, help="This is a complex one", long="complex", short="c", default_value=["--animal", "cat", "--thing", "chair", "123"]]
+    # Uncomment to get compiler error about multiple List args
+    # var many: Opt[List[Int], is_arg=True]
 
     fn __init__(out self):
         self.my_num = Int()
         self.complex = {BareComplex()}
+        # self.many = {[]}
 
     @staticmethod
     fn description() -> String:
@@ -424,17 +425,48 @@ struct ArgsBareType(MojOptDeserializable, Defaultable):
 struct BareComplex(Defaultable, Movable, ImplicitlyDestructible):
     var animal: String
     var thing: String
+    var many: Opt[List[Int], is_arg=True]
 
     fn __init__(out self):
         self.animal = "cat"
         self.thing = "chair"
+        self.many = {[]}
     
 def test_bare_complex() raises:
-    var parser = Parser([s("--my-num"), s("4"), s("--complex"), s("--animal"), s("dragon"), s("--thing"), s("table")])
+    var parser = Parser([s("--my-num"), s("4"), s("--complex"), s("--animal"), s("dragon"), s("--thing"), s("table"), s("100")])
     var args = ArgsBareType.from_opts(parser)
     assert_equal(args.my_num, 4)
     assert_equal(args.complex.value.animal, "dragon")
     assert_equal(args.complex.value.thing, "table")
+
+
+@fieldwise_init
+struct DefaultableLarge(MojOptDeserializable, Defaultable):
+    var small: Opt[Int, defaultable=True]
+    var medium: Opt[List[String], defaultable=True]
+    var large: Opt[Thing, defaultable=True]
+    var confusing: Opt[String, defaultable=True, default_value=["BrainExplode"]]
+
+    fn __init__(out self):
+        self = reflection_default[Self]()
+
+@fieldwise_init
+struct Thing(Movable, Defaultable):
+    var one: Int
+    var name: String
+
+    fn __init__(out self):
+        self.one = 1
+        self.name = "batman"
+
+def test_defaultable_opts() raises:
+    var parser = Parser([])
+    var args = DefaultableLarge.from_opts(parser)
+    assert_equal(args.small.value, Int())
+    assert_equal(args.medium.value, [])
+    assert_equal(args.large.value.one, Thing().one)
+    assert_equal(args.large.value.name, Thing().name)
+    assert_equal(args.confusing.value, "BrainExplode")
 
 def main() raises:
     TestSuite.discover_tests[__functions_in_module()]().run()

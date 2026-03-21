@@ -41,14 +41,16 @@ trait MojOptDeserializable(_Base):
             comptime if conforms_to(field_types[i], Optable):
                 comptime if downcast[field_types[i],Optable].opt_default_value:
                     comptime assert downcast[field_types[i],Optable].__valid_default(), StaticString(_get_kgen_string[
-                        "TOP: Invalid default value ",
-                        ' '.join(downcast[field_types[i], Optable].opt_default_value.value()),
-                        " for type ",
-                        get_type_name[Self]()
+                        "TOP: Invalid default value [",
+                        ', '.join(downcast[field_types[i], Optable].opt_default_value.value()),
+                        "] for type ",
+                        get_type_name[Self](),
+                        ".",
+                        field_names[i]
                     ]())
 
         # Check that there is only one args list
-        comptime assert __at_most_one_args_appendable[Self](), StaticString(_get_kgen_string[
+        comptime assert __count_args_appendable[Self]() <= 1, StaticString(_get_kgen_string[
             "Multiple possible Appendable arguments for ",
             get_type_name[Self]()
         ]())
@@ -58,6 +60,10 @@ trait MojOptDeserializable(_Base):
     @staticmethod
     fn description() -> String:
         return ""
+
+    @staticmethod
+    fn _derive_help() -> Bool:
+        return True
 
 trait MojOptDeserializableAppendable(MojOptDeserializable, Appendable):
     fn append_parse[options: ParseOptions, //](mut self, mut p: Parser[options]) raises MojOptErr:
@@ -98,9 +104,8 @@ trait Optable(MojOptDeserializable):
 #    - I think there's a path with maybe using `.` paths? 
 # - Added back support for allowing defaultable Opts, but non-ops still can't use Defaultable 
 #    - Somehow that needs to get baked in with the nested struct situation, so you can specify just one field or something
-# - Need to add tests around defaultable
-# - Need to add a check on __valid_default to make sure the correct number of values are passed in
-# - Need to add a check on __valid_default for nested struct fields that are positional args
+# - Added a check for nested struct fields that are positional args
+# - Added tests around defaultable
 # - Once all that is done, look into moving the MojOptDeserializable fully back into here
 #    - I think it actually works now, I don't have to do the LoadExts thing
 
@@ -140,10 +145,10 @@ struct Opt[
         # Comptime validate that the default is parsable
         comptime if Self.opt_default_value:
             comptime assert Self.__valid_default(), StaticString(_get_kgen_string[
-                "Invalid default value ",
+                "Invalid default value [",
                 ", ".join(Self.opt_default_value.value()),
-                " for type ",
-                get_type_name[Self]()
+                "] for type ",
+                get_type_name[Self](),
             ]())
         comptime if Self.opt_defaultable:
             comptime assert conforms_to(Self.T, Defaultable), StaticString(_get_kgen_string[
@@ -168,13 +173,26 @@ struct Opt[
         trait_downcast[Appendable](self.value).append_to(value^)
 
     @staticmethod
+    fn _derive_help() -> Bool:
+        comptime if conforms_to(Self.T, MojOptDeserializable):
+            return downcast[Self.T, MojOptDeserializable]._derive_help()
+        else:
+            return True
+
+
+
+    @staticmethod
     fn __valid_default() -> Bool:
-        if materialize[Self.opt_default_value]():
-            try:
-                var p = Parser(materialize[Self.opt_default_value]().value().copy())
-                var _ = _deserialize_impl[Self.T](p)
-            except e:
+        comptime if Self.opt_default_value:
+            comptime check = _comptime_deserialize_impl[Self.T](
+                Parser[
+                    ParseOptions(parsing_mode=ParseOptions.ParsingDefaults)
+                ](materialize[Self.opt_default_value]().value().copy())
+            )
+            comptime if not check.ok:
                 return False
+            else:
+                return True
         return True
     
     fn __bool__(self) -> Bool where conforms_to(Self.T, Boolable):
@@ -259,13 +277,14 @@ fn __strip_prefix_dashes(s: String) -> String:
         return String(s[1:])
     return s
 
-# TODO: need to recurse down to make sure that nothing on any field type is in turn appendable
-fn __at_most_one_args_appendable[T: MojOptDeserializable]() -> Bool:
+fn __count_args_appendable[T: _Base]() -> Int:
     comptime field_names = struct_field_names[T]()
     comptime field_types = struct_field_types[T]()
 
     var count = 0
     comptime for i in range(0, len(field_names)):
+        comptime if not is_struct_type[field_types[i]]():
+            continue
         comptime is_optable = conforms_to(field_types[i], Optable) 
         # Needed untill MOCO-3413 is resolved (conforms_to does not respect where clause and will return True even for where-gated traits)
         comptime is_appendable = __is_appendable[field_types[i]]() and (not is_optable or downcast[field_types[i], Optable].opt_is_appendable)
@@ -275,9 +294,10 @@ fn __at_most_one_args_appendable[T: MojOptDeserializable]() -> Bool:
             is_appendable
         ):
             count += 1
-            if count == 2:
-                break
-    return count < 2
+        elif not is_optable and is_struct_type[field_types[i]]():
+            count += __count_args_appendable[field_types[i]]()
+
+    return count
 
 
 
@@ -343,7 +363,7 @@ fn _default_deserialize[
     var positionals: List[String] = []
     while not p.is_done():
         var candidate_ident = p.read_string()
-        if candidate_ident== "--help" or candidate_ident== "-h":
+        if candidate_ident.lower() == "--help" or candidate_ident.lower() == "-h":
             raise MojOptErr(DisplayHelp(help))
 
         var ident = possible_idents.get(__to_ident(candidate_ident))
@@ -475,14 +495,35 @@ fn _deserialize_impl[
     else:
         s = _default_deserialize[T](p)
 
+fn _comptime_deserialize_impl[
+    options: ParseOptions, //, T: _Base
+](var p: Parser[options]) -> DefaultDeserCheck:
+    try:
+        s = _deserialize_impl[T](p)
+        if p.is_done():
+            return DefaultDeserCheck(True, None)
+        else:
+            return DefaultDeserCheck(False, "Not all values in parser consumed.")
+    except e:
+        return DefaultDeserCheck(False, String(e))
+        
 
-fn get_help[T: MojOptDeserializable]() -> String:
+@fieldwise_init
+struct DefaultDeserCheck(Movable, Writable):
+    var ok: Bool
+    var error: Optional[String]
+
+fn get_help[T: _Base, indent_level: Int = 1]() -> String:
     comptime field_names = struct_field_names[T]()
     comptime field_types = struct_field_types[T]()
 
     var options: List[String] = []
     var arguments: List[String] = []
-    var description = "\n".join([line.lstrip() for line in T.description().splitlines()])
+    var description: String
+    comptime if conforms_to(T, MojOptDeserializable) and not __is_opt[T]():
+        description = "\n".join([line.lstrip() for line in downcast[T, MojOptDeserializable].description().splitlines()])
+    else:
+        description = ""
 
     comptime for i in range(0, len(field_names)):
         # TODO: what if it's a nested struct?
@@ -490,34 +531,51 @@ fn get_help[T: MojOptDeserializable]() -> String:
         comptime field_name = field_names[i]
         comptime type_name = get_base_type_name[field_type]()
 
-        comptime if conforms_to(field_types[i], Optable):
-            comptime optlike = downcast[field_types[i], Optable]
-            comptime short_name = t"-{optlike.opt_short.value()}, " if optlike.opt_short else ""
-            comptime long_name = t"{optlike.opt_long.value()}" if optlike.opt_long else String(t"{__to_display_name(field_name)}")
-            # TODO: better default printing if defaultable and writable
-            comptime default = String(t" [default: {' '.join(optlike.opt_default_value.value())}]") if optlike.opt_default_value else String("defaultable") if optlike.opt_defaultable else String("")
-            comptime appendable = "..." if optlike.opt_is_appendable else ""
-            comptime fixed_help = optlike.opt_help.replace("\n", "          \n")
-            comptime desc_line = t"          {fixed_help}"
+        comptime if not is_struct_type[field_type]():
+            continue 
+        
+        comptime if not __is_opt[T]():
+            comptime if conforms_to(field_type, Optable):
+                comptime optlike = downcast[field_types[i], Optable]
+                comptime short_name = t"-{optlike.opt_short.value()}, " if optlike.opt_short else ""
+                comptime long_name = t"{optlike.opt_long.value()}" if optlike.opt_long else String(t"{__to_display_name(field_name)}")
+                # TODO: better default printing if defaultable and writable
+                comptime default = String(t" [default: {' '.join(optlike.opt_default_value.value())}]") if optlike.opt_default_value else String("defaultable") if optlike.opt_defaultable else String("")
+                comptime appendable = "..." if optlike.opt_is_appendable else ""
+                comptime fixed_help = optlike.opt_help.replace("\n", "          \n")
+                comptime desc_line = t"          {fixed_help}"
 
-            comptime if optlike.opt_is_arg:
-                comptime details_line = t"  [{long_name.upper()}]{appendable}{default}\n"
-                arguments.append(materialize[String(details_line) + String(desc_line)]())
+                comptime if optlike.opt_is_arg:
+                    comptime details_line = t"  [{long_name.upper()}]{appendable}{default}\n"
+                    arguments.append(materialize[String(details_line) + String(desc_line)]())
+                else:
+                    comptime details_line = t"  {short_name}--{long_name} <{long_name.upper()}>{appendable}{default}\n"
+                    options.append(materialize[String(details_line) + String(desc_line)]())
             else:
-                comptime details_line = t"  {short_name}--{long_name} <{long_name.upper()}>{appendable}{default}\n"
-                options.append(materialize[String(details_line) + String(desc_line)]())
-        else:
-            # TODO: what if it's a struct?
-            comptime long_name = t"  --{field_name} <{field_name.upper()}>"
-            options.append(materialize[long_name]())
+                # TODO: what if it's a struct?
+                comptime long_name = t"  --{field_name} <{field_name.upper()}>"
+                options.append(materialize[long_name]())
+        
+        comptime if conforms_to(field_type, MojOptDeserializable) and not downcast[field_type, MojOptDeserializable]._derive_help():
+                    continue
+
+        # TODO: need mechanism here to see through the Opt type to Opt.T
+        # TODO: I think that if I test for if the incoming fiels is Opt,
+        # Then ignore all it's info / indent, that would work. bit jank
+        comptime derived_indent = 0 if __is_opt[T]() else indent_level + 1
+        var more_help = [String(t"{'     ' * derived_indent}{line}") for line in get_help[field_type, derived_indent + 1]().splitlines() if line] 
+        for line in more_help:
+            options.append(line)
 
     var final_list = [description]
     if len(arguments) > 0:
-        final_list.append("Arguments:")
+        if not __is_opt[T]():
+            final_list.append("Arguments:")
         final_list.append("\n".join(arguments))
 
     if len(options) > 0:
-        final_list.append("Options:")
+        if not __is_opt[T]():
+            final_list.append("Options:")
         final_list.append("\n".join(options))
 
     var final = "\n".join(final_list)
@@ -553,6 +611,12 @@ __extension String(MojOptDeserializable):
     @staticmethod
     fn description() -> String:
         return ""
+
+    @staticmethod
+    fn _derive_help() -> Bool:
+        return False
+
+
 __extension Int(MojOptDeserializable):
 
     fn from_opts[
@@ -563,6 +627,10 @@ __extension Int(MojOptDeserializable):
     @staticmethod
     fn description() -> String:
         return ""
+
+    @staticmethod
+    fn _derive_help() -> Bool:
+        return False
 
 
 __extension Bool(MojOptDeserializable):
@@ -576,6 +644,10 @@ __extension Bool(MojOptDeserializable):
     @staticmethod
     fn description() -> String:
         return ""
+
+    @staticmethod
+    fn _derive_help() -> Bool:
+        return False
 
 # __extension SIMD(MojOptDeserializable):
 #     @staticmethod
@@ -731,6 +803,10 @@ __extension List(MojOptDeserializableAppendable):
     @staticmethod
     fn description() -> String:
         return ""
+    
+    @staticmethod
+    fn _derive_help() -> Bool:
+        return False
 
 
 # __extension Dict(MojOptDeserializable):
