@@ -567,6 +567,110 @@ def test_defaultable_opts() raises:
     assert_equal(args.large.value.name, Thing().name)
     assert_equal(args.confusing.value, "BrainExplode")
 
+@fieldwise_init
+struct StringTest(Defaultable, MojOptDeserializable):
+    var item: String
+    
+    fn __init__(out self):
+        self = reflection_default[Self]()
+
+def test_string() raises:
+    var parser = Parser(["--item", "foo"])
+    var args = StringTest.from_opts(parser)
+    assert_equal(args.item, "foo")
+
+
+@fieldwise_init
+struct IntTest(Defaultable, MojOptDeserializable):
+    var item: Int 
+    
+    fn __init__(out self):
+        self = reflection_default[Self]()
+
+def test_int() raises:
+    var parser = Parser(["--item", "42"])
+    var args = IntTest.from_opts(parser)
+    assert_equal(args.item, 42)
+
+@fieldwise_init
+struct BoolTest(Defaultable, MojOptDeserializable):
+    var item: Bool 
+    
+    fn __init__(out self):
+        self = reflection_default[Self]()
+
+def test_bool() raises:
+    var parser = Parser(["--item"])
+    var args = BoolTest.from_opts(parser)
+    assert_true(args.item)
+
+@fieldwise_init
+struct FloatTest(Defaultable, MojOptDeserializable):
+    var item: Float64
+    
+    fn __init__(out self):
+        self = reflection_default[Self]()
+
+def test_float() raises:
+    var parser = Parser(["--item", "3.14"])
+    var args = FloatTest.from_opts(parser)
+    assert_equal(args.item, 3.14)
+
+@fieldwise_init
+struct IntLiteralTest(Defaultable, MojOptDeserializable):
+    comptime Lit = 42
+    var item: type_of(Self.Lit)
+    
+    fn __init__(out self):
+        self = reflection_default[Self]()
+
+def test_int_literal() raises:
+    var parser = Parser(["--item", "42"])
+    var args = IntLiteralTest.from_opts(parser)
+    assert_equal(args.item, 42)
+
+
+@fieldwise_init
+struct FloatLiteralTest(Defaultable, MojOptDeserializable):
+    comptime Lit = 42.42
+    var item: type_of(Self.Lit)
+    
+    fn __init__(out self):
+        self = reflection_default[Self]()
+
+def test_float_literal() raises:
+    var parser = Parser(["--item", "42.42"])
+    var args = FloatLiteralTest.from_opts(parser)
+    assert_equal(args.item, 42.42)
+
+
+from std.memory import ArcPointer
+
+@fieldwise_init
+struct ArcPointerTest(Defaultable, MojOptDeserializable):
+    var item: ArcPointer[String]
+    
+    fn __init__(out self):
+        self.item = ArcPointer("foo")
+
+def test_arcpointer() raises:
+    var parser = Parser(["--item", "bar"])
+    var args = ArcPointerTest.from_opts(parser)
+    assert_equal(args.item[], ArcPointer("bar")[])
+
+from std.memory import OwnedPointer
+
+@fieldwise_init
+struct OwnedPointerTest(Defaultable, MojOptDeserializable):
+    var item: OwnedPointer[String]
+    
+    fn __init__(out self):
+        self.item = OwnedPointer("foo")
+
+def test_ownedpointer() raises:
+    var parser = Parser(["--item", "bar"])
+    var args = OwnedPointerTest.from_opts(parser)
+    assert_equal(args.item[], OwnedPointer("bar")[])
 
 def main() raises:
     TestSuite.discover_tests[__functions_in_module()]().run()

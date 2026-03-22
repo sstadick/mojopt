@@ -435,8 +435,7 @@ fn _default_deserialize[
                 ].opt_is_arg:
                     raise MojOptErr(
                         Error(
-                            t"{candidate_ident} is a positional argument, not"
-                            " an option."
+                            t"{candidate_ident} is a positional argument, not an option."
                         )
                     )
 
@@ -535,8 +534,7 @@ fn _default_deserialize[
                 except e:
                     raise MojOptErr(
                         Error(
-                            "Can't parse positional argument"
-                            t" [{materialize[field_names[i]]().upper()}]:\n\t{e}"
+                            t"Can't parse positional argument [{materialize[field_names[i]]().upper()}]:\n\t{e}"
                         )
                     )
 
@@ -661,11 +659,9 @@ fn get_help[T: _Base, indent_level: Int = 1]() -> String:
                 # TODO: once again, how so I get at Opt.T? really need parametric traits
                 comptime default = (
                     String(
-                        " [default:"
-                        t" `{' '.join(optlike.opt_default_value.value())}`]"
+                        t" [default: `{' '.join(optlike.opt_default_value.value())}`]"
                     ) if optlike.opt_default_value else String(
-                        " [default:"
-                        t" `{downcast[field_type, Defaultable & Writable]()}`]"
+                        t" [default: `{downcast[field_type, Defaultable & Writable]()}`]"
                     ) if optlike.opt_defaultable
                     and conforms_to(field_type, Writable) else String(
                         " [default: `<default_not_writable>`]"
@@ -766,7 +762,7 @@ __extension Int(MojOptDeserializable):
     fn from_opts[
         options: ParseOptions, //
     ](mut p: Parser[options], out s: Self) raises MojOptErr:
-        s = p.read_int()
+        s = Int(p.read_int())
 
     @staticmethod
     fn description() -> String:
@@ -776,6 +772,29 @@ __extension Int(MojOptDeserializable):
     fn _derive_help() -> Bool:
         return False
 
+__extension SIMD(MojOptDeserializable):
+    fn from_opts[
+        options: ParseOptions, //
+    ](mut p: Parser[options], out s: Self) raises MojOptErr:
+        comptime assert Self.size == 1, "Currenlty only Scalars are supported by MojOpt"
+        s = Self()
+        comptime if Self.dtype.is_numeric():
+            comptime if Self.dtype.is_floating_point():
+                return p.read_float[Self.dtype]()
+            else:
+                return p.read_int[Self.dtype]()
+        else:
+            return Scalar[Self.dtype](p.read_bool())
+
+        raise Error(t"No way to parse {get_type_name[Self.dtype]()}")
+
+    @staticmethod
+    fn description() -> String:
+        return ""
+
+    @staticmethod
+    fn _derive_help() -> Bool:
+        return False
 
 __extension Bool(MojOptDeserializable):
     @staticmethod
@@ -792,107 +811,76 @@ __extension Bool(MojOptDeserializable):
     fn _derive_help() -> Bool:
         return False
 
+__extension IntLiteral(MojOptDeserializable):
+    @staticmethod
+    fn from_opts[
+        options: ParseOptions, //
+    ](mut p: Parser[options], out s: Self) raises MojOptErr:
+        s = Self()
+        var i = p.read_int()
+        if i != s:
+            raise Error(t"Expected {s}, got {i}")
 
-# __extension SIMD(MojOptDeserializable):
-#     @staticmethod
-#     fn parse[
-#         options: ParseOptions, //
-#     ](mut p: Parser[options], out s: Self) raises:
-#         s = Self()
+    @staticmethod
+    fn description() -> String:
+        return ""
 
-#         @parameter
-#         @always_inline
-#         fn parse_simd_element(
-#             mut p: Parser[options],
-#         ) raises -> Scalar[Self.dtype]:
-#             comptime if Self.dtype.is_numeric():
-#                 comptime if Self.dtype.is_floating_point():
-#                     return p.expect_float[Self.dtype]()
-#                 else:
-#                     comptime if Self.dtype.is_signed():
-#                         return p.expect_integer[Self.dtype]()
-#                     else:
-#                         return p.expect_unsigned_integer[Self.dtype]()
-#             else:
-#                 return Scalar[Self.dtype](p.expect_bool())
+    @staticmethod
+    fn _derive_help() -> Bool:
+        return False
 
-#         comptime if size > 1:
-#             p.expect(`[`)
+__extension FloatLiteral(MojOptDeserializable):
+    @staticmethod
+    fn from_opts[
+        options: ParseOptions, //
+    ](mut p: Parser[options], out s: Self) raises MojOptErr:
+        s = Self()
+        var i = p.read_float()
+        if i != s:
+            raise Error(t"Expected {s}, got {i}")
 
-#         comptime for i in range(size):
-#             s[i] = parse_simd_element(p)
+    @staticmethod
+    fn description() -> String:
+        return ""
 
-#             comptime if i < size - 1:
-#                 p.expect(`,`)
-
-#         comptime if size > 1:
-#             p.expect(`]`)
-
-#     @staticmethod
-#     fn deserialize_as_array() -> Bool:
-#         return False
+    @staticmethod
+    fn _derive_help() -> Bool:
+        return False
 
 
-# __extension IntLiteral(MojOptDeserializable):
-#     @staticmethod
-#     fn parse[
-#         options: ParseOptions, //
-#     ](mut p: Parser[options], out s: Self) raises:
-#         s = Self()
-#         var i = p.expect_integer()
-#         if i != s:
-#             raise Error("Expected: ", s, ", Received: ", i)
+# ===============================================
+# Pointers
+# ===============================================
 
-#     @staticmethod
-#     fn deserialize_as_array() -> Bool:
-#         return False
+__extension ArcPointer(MojOptDeserializable):
+    @staticmethod
+    fn from_opts[
+        options: ParseOptions, //
+    ](mut p: Parser[options], out s: Self) raises MojOptErr:
+        s = Self(_deserialize_impl[downcast[Self.T, _Base]](p))
 
+    @staticmethod
+    fn description() -> String:
+        return ""
 
-# __extension FloatLiteral(MojOptDeserializable):
-#     @staticmethod
-#     fn parse[
-#         options: ParseOptions, //
-#     ](mut p: Parser[options], out s: Self) raises:
-#         s = Self()
-#         var f = p.expect_float()
-#         if f != s:
-#             raise Error("Expected: ", s, ", Received: ", f)
+    @staticmethod
+    fn _derive_help() -> Bool:
+        return False
 
-#     @staticmethod
-#     fn deserialize_as_array() -> Bool:
-#         return False
+__extension OwnedPointer(MojOptDeserializable):
+    @staticmethod
+    fn from_opts[
+        options: ParseOptions, //
+    ](mut p: Parser[options], out s: Self) raises MojOptErr:
+        s = rebind_var[Self](OwnedPointer(_deserialize_impl[downcast[Self.T, _Base]](p)))
 
+    @staticmethod
+    fn description() -> String:
+        return ""
 
-# # ===============================================
-# # Pointers
-# # ===============================================
-
-
-# __extension ArcPointer(MojOptDeserializable):
-#     @staticmethod
-#     fn parse[
-#         options: ParseOptions, //
-#     ](mut p: Parser[options], out s: Self) raises:
-#         s = Self(_deserialize_impl[downcast[Self.T, _Base]](p))
-
-#     @staticmethod
-#     fn deserialize_as_array() -> Bool:
-#         return False
-
-
-# __extension OwnedPointer(MojOptDeserializable):
-#     @staticmethod
-#     fn parse[
-#         options: ParseOptions, //
-#     ](mut p: Parser[options], out s: Self) raises:
-#         s = rebind_var[Self](
-#             OwnedPointer(_deserialize_impl[downcast[Self.T, _Base]](p))
-#         )
-
-#     @staticmethod
-#     fn deserialize_as_array() -> Bool:
-#         return False
-
+    @staticmethod
+    fn _derive_help() -> Bool:
+        return False
 
 # # ===============================================
 # # Collections

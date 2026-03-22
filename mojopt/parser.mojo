@@ -68,6 +68,12 @@ struct Parser[options: ParseOptions = ParseOptions()]:
         else:
             raise Error("Expected bool, got: " + value)
 
-    def read_int(mut self) raises -> Int:
+    def read_int[type: DType = DType.int64](mut self) raises -> Scalar[type]:
+        comptime assert type.is_integral(), "Ints are integral"
         var value = self._get_next()
-        return atol(value)
+        return Scalar[type](atol(value))
+
+    def read_float[type: DType = DType.float64](mut self) raises -> Scalar[type]:
+        comptime assert type.is_floating_point(), "Floats are floating point"
+        var value = self._get_next()
+        return Scalar[type](atof(value))
