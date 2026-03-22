@@ -882,25 +882,25 @@ __extension OwnedPointer(MojOptDeserializable):
     fn _derive_help() -> Bool:
         return False
 
-# # ===============================================
-# # Collections
-# # ===============================================
+# ===============================================
+# Collections
+# ===============================================
 
+__extension Optional(MojOptDeserializable):
 
-# __extension Optional(MojOptDeserializable):
-#     @staticmethod
-#     fn parse[
-#         options: ParseOptions, //
-#     ](mut p: Parser[options], out s: Self) raises:
-#         if p.peek() == `n`:
-#             p.expect_null()
-#             s = None
-#         else:
-#             s = Self(_deserialize_impl[downcast[Self.T, _Base]](p))
+    @staticmethod
+    fn from_opts[
+        options: ParseOptions, //
+    ](mut p: Parser[options], out s: Self) raises MojOptErr:
+        s = Self(_deserialize_impl[downcast[Self.T, _Base]](p))
 
-#     @staticmethod
-#     fn deserialize_as_array() -> Bool:
-#         return False
+    @staticmethod
+    fn description() -> String:
+        return ""
+
+    @staticmethod
+    fn _derive_help() -> Bool:
+        return False
 
 
 __extension List(MojOptDeserializableAppendable):
@@ -944,6 +944,111 @@ __extension List(MojOptDeserializableAppendable):
     fn _derive_help() -> Bool:
         return False
 
+__extension Set(MojOptDeserializableAppendable):
+    fn append_to(mut self, var value: Some[Copyable & _Base]):
+        self.add(rebind_var[Self.T](value^))
+
+    fn append_parse[
+        options: ParseOptions, //
+    ](mut self, mut p: Parser[options]) raises MojOptErr:
+        var deser = _deserialize_impl[downcast[Self.T, _Base]](p)  # _Base
+        var value = trait_downcast_var[Copyable & _Base](
+            deser^
+        )  # implicitly Self.T
+        self.append_to(value^)
+
+    @staticmethod
+    fn from_opts[
+        options: ParseOptions, //
+    ](mut p: Parser[options], out s: Self) raises MojOptErr:
+        s = Self()
+
+        comptime if options.parsing_mode == ParseOptions.ParsingArguments:
+            # If we are argument parsing, consume all the values possible
+            while not p.is_done():
+                s.add(_deserialize_impl[downcast[Self.T, _Base]](p))
+        elif options.parsing_mode == ParseOptions.ParsingOptions:
+            # If we are still option parsing, lists will come as kv pairs still
+            s.add(_deserialize_impl[downcast[Self.T, _Base]](p))
+        elif options.parsing_mode == ParseOptions.ParsingDefaults:
+            # Parsing a user defined default value
+            while not p.is_done():
+                s.add(_deserialize_impl[downcast[Self.T, _Base]](p))
+        else:
+            abort(t"Unknown parse mode: {options.parsing_mode}")
+
+    @staticmethod
+    fn description() -> String:
+        return ""
+
+    @staticmethod
+    fn _derive_help() -> Bool:
+        return False
+
+
+__extension InlineArray(MojOptDeserializable):
+    @staticmethod
+    fn from_opts[
+        options: ParseOptions, //
+    ](mut p: Parser[options], out s: Self) raises MojOptErr:
+        s = Self(uninitialized=True)
+        comptime assert options.parsing_mode != ParseOptions.ParsingOptions, "Cannot use fixed-size container as an option"
+
+        comptime if (
+                options.parsing_mode == ParseOptions.ParsingArguments or
+                options.parsing_mode == ParseOptions.ParsingDefaults
+            ):
+            # If we are argument parsing, consume all the values possible
+            comptime for i in range(Self.size):
+                if p.is_done():
+                    raise Error(t"Found {i} values, expected {len(s)}")
+                UnsafePointer(to=s[i]).init_pointee_move(
+                    _deserialize_impl[downcast[Self.ElementType, _Base]](p)
+                )
+        elif options.parsing_mode == ParseOptions.ParsingOptions:
+            raise Error("Cannot use fixed-size container as an option")
+        else:
+            abort(t"Unknown parse mode: {options.parsing_mode}")
+
+    @staticmethod
+    fn description() -> String:
+        return ""
+
+    @staticmethod
+    fn _derive_help() -> Bool:
+        return False
+
+__extension Tuple(MojOptDeserializable):
+    @staticmethod
+    fn from_opts[
+        options: ParseOptions, //
+    ](mut p: Parser[options], out s: Self) raises MojOptErr:
+        __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(s))
+        comptime assert options.parsing_mode != ParseOptions.ParsingOptions, "Cannot use fixed-size container as an option"
+
+        comptime if (
+                options.parsing_mode == ParseOptions.ParsingArguments or
+                options.parsing_mode == ParseOptions.ParsingDefaults
+            ):
+            # If we are argument parsing, consume all the values possible
+            comptime for i in range(Self.__len__()):
+                if p.is_done():
+                    raise Error(t"Found {i} values, expected {len(s)}")
+                UnsafePointer(to=s[i]).init_pointee_move(
+                    _deserialize_impl[downcast[Self.element_types[i], _Base]](p)
+                )
+        elif options.parsing_mode == ParseOptions.ParsingOptions:
+            raise Error("Cannot use fixed-size container as an option")
+        else:
+            abort(t"Unknown parse mode: {options.parsing_mode}")
+
+    @staticmethod
+    fn description() -> String:
+        return ""
+
+    @staticmethod
+    fn _derive_help() -> Bool:
+        return False
 
 # __extension Dict(MojOptDeserializable):
 #     @staticmethod

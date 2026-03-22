@@ -672,5 +672,92 @@ def test_ownedpointer() raises:
     var args = OwnedPointerTest.from_opts(parser)
     assert_equal(args.item[], OwnedPointer("bar")[])
 
+@fieldwise_init
+struct OptionalTest(Defaultable, MojOptDeserializable):
+    var item: Optional[String]
+    
+    fn __init__(out self):
+        self.item = None
+
+def test_optional() raises:
+    var parser = Parser(["--item", "bar"])
+    var args = OptionalTest.from_opts(parser)
+    assert_equal(args.item.value(), "bar")
+
+    var parser_none = Parser([])
+    var args_none = OptionalTest.from_opts(parser_none)
+    assert_false(args_none.item) 
+
+@fieldwise_init
+struct ListTest(Defaultable, MojOptDeserializable):
+    var item: List[Int]
+    
+    fn __init__(out self):
+        self.item = []
+
+def test_list() raises:
+    var parser = Parser(["--item", "1", "--item", "2", "--item", "3"])
+    var args = ListTest.from_opts(parser)
+    assert_equal(args.item, [1, 2, 3])
+
+
+from std.collections import Set
+
+@fieldwise_init
+struct SetTest(Defaultable, MojOptDeserializable):
+    var item: Set[Int]
+    
+    fn __init__(out self):
+        self.item = {}
+
+def test_set() raises:
+    var parser = Parser(["--item", "1", "--item", "2", "--item", "3", "--item", "3"])
+    var args = SetTest.from_opts(parser)
+    assert_equal(args.item, {1, 2, 3})
+
+@fieldwise_init
+struct InlineArrayTest(Defaultable, MojOptDeserializable):
+    var item: Opt[InlineArray[Int, 3], is_arg=True]
+     # var item2: InlineArray[Int, 3] # Uncomment to induce compiler error
+    
+    fn __init__(out self):
+        self.item = {InlineArray[Int, 3](fill=0)}
+        # self.item2 = InlineArray[Int, 3](fill=0)
+
+def test_inlinearray() raises:
+    var parser = Parser(["1", "2", "3"])
+    var args = InlineArrayTest.from_opts(parser)
+    assert_equal(args.item.value, [1, 2, 3])
+
+@fieldwise_init
+struct TupleTest(Defaultable, MojOptDeserializable):
+    var item: Opt[Tuple[Int, String, Float64], is_arg=True]
+     # var item2: InlineArray[Int, 3] # Uncomment to induce compiler error
+    
+    fn __init__(out self):
+        self.item = {Tuple(0, "0", 0.0)}
+        # self.item2 = InlineArray[Int, 3](fill=0)
+
+def test_tuple() raises:
+    var parser = Parser(["1", "foobar", "3.14"])
+    var args = TupleTest.from_opts(parser)
+    assert_equal(args.item.value, (1, "foobar", 3.14))
+
+@fieldwise_init
+struct NestedTupleTest(Defaultable, MojOptDeserializable):
+    var item: Opt[Tuple[Int, String, Tuple[Int, String]], is_arg=True]
+     # var item2: InlineArray[Int, 3] # Uncomment to induce compiler error
+    
+    fn __init__(out self):
+        self.item = {Tuple(0, "0", Tuple(1, "1"))}
+
+def test_nested_tuple() raises:
+    var parser = Parser(["1", "foobar", "2", "cats"])
+    var args = NestedTupleTest.from_opts(parser)
+    assert_equal(args.item.value[0], 1)
+    assert_equal(args.item.value[1], "foobar")
+    assert_equal(args.item.value[2][0], 2)
+    assert_equal(args.item.value[2][1], "cats")
+
 def main() raises:
     TestSuite.discover_tests[__functions_in_module()]().run()
