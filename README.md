@@ -3,25 +3,11 @@
 A Mojo library for parsing CLI args based on the Rust Structopt crate.
 
 > [!WARNING]  
-> This library is under active development. It's entirely predicated on something that is probably a compiler bug.
-> Use at your own risk.
+> This library is under active development.
 
 ## Synopsis
 
 `MojOpt` is a fully featured CLI option parser that uses struct definitions to parse the CLI options.
-
-### The hack
-
-Metadata about options can optionally be supplied via the translucent type `Opt`, which allows for specifying `help`, `long`, `short`, etc.
-`Opt` works because `MojOptDeserializable` is implemented for base types via conforming `__extension`s.
-Extensions are not a fully baked language feature yet.
-To the get implemented methods to import, you hoave to evalutate something that uses them at `comptime`, which is what the `LoadExts().FullConformance` hack is doing.
-As mentioned above, this is likely a leaky compiler bug.
-
-An earlier iteration of `MojOpt` supplied the `Opts` via a method called `get_metadata` on the `MojOptDeserializable` trait.
-It returned a `Dict[String, Opt]` where the keys were the field names.
-This worked but had the downside of defining the metadata away from the struct field definitions.
-If the bug above is fixed such that extensions can't be imported, this library will fall back to the comptime dict metadata.
 
 
 ## Example
@@ -30,12 +16,8 @@ If the bug above is fixed such that extensions can't be imported, this library w
 
 from mojopt.command import MojOpt, Commandable
 from mojopt.default import reflection_default
-from mojopt.deserialize import MojOptDeserializable, Opt, LoadExts
+from mojopt.deserialize import MojOptDeserializable, Opt
 from mojopt.parser import Parser
-
-
-# Needed to force loading Exts
-comptime Ext = LoadExts().FullConformance
 
 @fieldwise_init
 struct GetLanguages(MojOptDeserializable, Defaultable, Writable, Commandable):
@@ -102,3 +84,8 @@ Works, TODO - write some docs on this.
 ## Known issues and todos
 
 - TODO: Implement extensions for more base types
+- TODO: remove todos
+- TODO: update readme example
+- TODO: add ci
+- TODO: update everythign to use reexported types
+- TODO: use docstrings / minimize imports

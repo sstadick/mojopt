@@ -7,14 +7,11 @@ from std.testing import (
 )
 
 from mojopt.default import reflection_default
-from mojopt.deserialize import MojOptDeserializable, Opt, LoadExts, get_help
+from mojopt.deserialize import MojOptDeserializable, Opt, get_help
 from mojopt.parser import Parser, ParseOptions
 from mojopt.error import MojOptErr
 
 from mojopt.ext import *
-
-# Needed to force the loading of extensions
-# comptime Exts = LoadExts().FullConformance
 
 
 # Tests:

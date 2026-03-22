@@ -8,12 +8,9 @@ from std.testing import (
 
 from mojopt.default import reflection_default
 from mojopt.error import MojOptErr
-from mojopt.deserialize import MojOptDeserializable, Opt, LoadExts
+from mojopt.deserialize import MojOptDeserializable, Opt
 from mojopt.parser import Parser, ParseOptions
 from mojopt.command import MojOpt, Commandable
-
-# Needed to force the loading of extensions
-comptime Exts = LoadExts().FullConformance
 
 
 @fieldwise_init
