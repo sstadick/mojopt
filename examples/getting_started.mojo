@@ -1,11 +1,8 @@
 # from mojopt import reflection_default, MojOptDeserializable, Opt, LoadExts
 from mojopt.command import MojOpt, Commandable
 from mojopt.default import reflection_default
-from mojopt.deserialize import MojOptDeserializable, Opt, LoadExts
+from mojopt.deserialize import MojOptDeserializable, Opt
 from mojopt.parser import Parser
-
-# Needed to force the loading of extensions
-# comptime Exts = LoadExts().FullConformance
 
 
 @fieldwise_init
@@ -14,14 +11,8 @@ struct Args(Commandable, Defaultable, MojOptDeserializable, Writable):
         String, help="The users first name", long="first-name", short="f"
     ]
     var last_name: String
-    # var languages: Opt[List[String], help="The languages the user speaks", is_arg=True]
-    var numbers: Opt[
-        List[Int], help="The languages the user speaks", is_arg=True
-    ]
     var nested: Opt[Nested, help="A nested struct, what could go wrong?"]
-    var nested_bare: Nested
-    var nested2: Opt[Nested2, help="A nested struct, what could go wrong?"]
-    var nested2_bare: Nested2
+    var languages: Opt[Set[String], help="The languages the user speaks", is_arg=True]
 
     fn __init__(out self):
         self = reflection_default[Self]()
@@ -39,21 +30,25 @@ struct Args(Commandable, Defaultable, MojOptDeserializable, Writable):
 
 @fieldwise_init
 struct Nested(Defaultable, MojOptDeserializable, Writable):
+    """Nested structs are parsed the same way as outer structs.
+    
+    The only requirement is that they follow the outer opt immediately.
+    In this example, the opts might look like:
+
+    ```
+    prog --first-name John \
+         --nested \
+            --inner-mind peace \
+            --outer-body 42 \
+          --last-name Doe \
+          English Spanish
+    ```
+    """
     var inner_mind: Opt[String, help="Inner sanctum"]
     var outer_body: Opt[Int, help="Outer fortresss"]
 
     fn __init__(out self):
         self = reflection_default[Self]()
-
-
-@fieldwise_init
-struct Nested2(Defaultable, Movable, Writable):
-    var inner_mind: Opt[String, help="Inner sanctum"]
-    var outer_body: Opt[Int, help="Outer fortresss"]
-
-    fn __init__(out self):
-        self = reflection_default[Self]()
-
 
 def main() raises:
     MojOpt[Args]().run()

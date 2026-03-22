@@ -720,23 +720,6 @@ fn get_help[T: _Base, indent_level: Int = 1]() -> String:
     return final
 
 
-struct LoadExts:
-    """Force extension to be registered.
-
-    There seems to be a bug of some sort where extensions aren't
-    available in scope until they've been called or something.
-    """
-
-    comptime ListC = conforms_to(type_of(List[Int]()), MojOptDeserializable)
-    comptime StringC = conforms_to(type_of(String()), MojOptDeserializable)
-    comptime BoolC = conforms_to(type_of(Bool()), MojOptDeserializable)
-    comptime IntC = conforms_to(type_of(Int()), MojOptDeserializable)
-    comptime FullConformance = Self.ListC and Self.StringC and Self.BoolC and Self.IntC
-
-    fn __init__(out self):
-        pass
-
-
 # ===============================================
 # Primitives
 # ===============================================
