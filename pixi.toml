@@ -35,5 +35,5 @@ t = { cmd = "sh -c 'find ./tests -name test_*.mojo | xargs -I % mojo run -I . -D
 
 
 [dependencies]
-mojo = "0.*"
+mojo = "==0.26.2"
 # mojopt = { path = "." }

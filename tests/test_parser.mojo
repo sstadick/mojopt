@@ -535,7 +535,7 @@ def test_bare_complex() raises:
 
 
 @fieldwise_init
-struct DefaultableLarge(Defaultable, MojOptDeserializable):
+struct DefaultableLarge(Defaultable, ImplicitlyDestructible, MojOptDeserializable):
     var small: Opt[Int, defaultable=True]
     var medium: Opt[List[String], defaultable=True]
     var large: Opt[Thing, defaultable=True]
@@ -546,7 +546,7 @@ struct DefaultableLarge(Defaultable, MojOptDeserializable):
 
 
 @fieldwise_init
-struct Thing(Defaultable, Movable):
+struct Thing(Defaultable, ImplicitlyDestructible, Movable):
     var one: Int
     var name: String
 
@@ -758,3 +758,4 @@ def test_nested_tuple() raises:
 
 def main() raises:
     TestSuite.discover_tests[__functions_in_module()]().run()
+

@@ -305,9 +305,9 @@ fn __to_display_name(s: String) -> String:
 
 fn __strip_prefix_dashes(s: String) -> String:
     if s.startswith("--"):
-        return String(s[2:])
+        return String(s[byte=2:])
     elif s.startswith("-"):
-        return String(s[1:])
+        return String(s[byte=1:])
     return s
 
 
@@ -331,8 +331,8 @@ fn __count_args_appendable[T: _Base]() -> Int:
             and is_appendable
         ):
             count += 1
-        elif not is_optable and is_struct_type[field_types[i]]():
-            count += __count_args_appendable[field_types[i]]()
+        elif not is_optable and is_struct_type[downcast[field_types[i], _Base]]():
+            count += __count_args_appendable[downcast[field_types[i], _Base]]()
 
     return count
 
@@ -439,7 +439,7 @@ fn _default_deserialize[
                         )
                     )
 
-                ref field = __struct_field_ref(i, s)
+                ref field = trait_downcast[_Base](__struct_field_ref(i, s))
                 comptime TField = downcast[type_of(field), _Base]
                 comptime is_appendable = __is_appendable[TField]() and (
                     not is_optable
@@ -466,31 +466,29 @@ fn _default_deserialize[
                             field_type, Optable
                         ].opt_default_value.value()
                         var p_bool = Parser(materialize[value]().copy())
-                        var b = downcast[Bool, MojOptDeserializable].from_opts(
-                            p_bool
-                        )
+                        var b = p_bool.read_bool()
                         # TODO: this should be doable without re-parsing
                         if b:
                             # Was true, invert
                             var p = Parser(["False"])
                             field = downcast[
-                                TField, MojOptDeserializable
+                                type_of(field), MojOptDeserializable
                             ].from_opts(p)
                         else:
                             var p = Parser(["True"])
                             field = downcast[
-                                TField, MojOptDeserializable
+                                type_of(field), MojOptDeserializable
                             ].from_opts(p)
                     elif is_optable:  # Flags are assumed set to default of False
                         # TODO: technically this ignores the defaultable setting on Opts
                         var p = Parser(["True"])
                         field = downcast[
-                            TField, MojOptDeserializable
+                            type_of(field), MojOptDeserializable
                         ].from_opts(p)
                     else:
                         # TODO: technically this ignores the defaultable setting on Opts
                         # Since the default for bool is False, invert it to true
-                        field = rebind[TField](True)
+                        field = rebind_var[type_of(field)](True)
                 else:
                     if seen_i:
                         raise MojOptErr(
@@ -527,10 +525,10 @@ fn _default_deserialize[
             ].opt_is_arg:
                 ref seen_i = seen.unsafe_get(i)
                 seen_i = True
-                ref field = __struct_field_ref(i, s)
+                ref field = trait_downcast[_Base](__struct_field_ref(i, s))
                 comptime TField = downcast[type_of(field), _Base]
                 try:
-                    field = _deserialize_impl[TField](pp)
+                    field = _deserialize_impl[type_of(field)](pp)
                 except e:
                     raise MojOptErr(
                         Error(
@@ -554,7 +552,7 @@ fn _default_deserialize[
                 comptime default = downcast[
                     field_types[i], Optable
                 ].opt_default_value.value()
-                ref field = __struct_field_ref(i, s)
+                ref field = trait_downcast[_Base](__struct_field_ref(i, s))
                 var p = Parser[
                     ParseOptions(parsing_mode=ParseOptions.ParsingDefaults)
                 ](materialize[default]())
@@ -567,8 +565,13 @@ fn _default_deserialize[
                 and conforms_to(field_types[i], Defaultable)
             ):
                 # Then check if defaultable or optional
-                ref field = __struct_field_ref(i, s)
-                field = downcast[type_of(field), Defaultable]()
+
+                ref field = trait_downcast[ImplicitlyDestructible & Movable & Defaultable](
+                    __struct_field_ref(i, s)
+                )
+                UnsafePointer(to=field).init_pointee_move(type_of(field)())
+
+
             else:
                 # Explode
 
@@ -651,8 +654,8 @@ fn get_help[T: _Base, indent_level: Int = 1]() -> String:
         comptime if not __is_opt[T]():
             comptime if conforms_to(field_type, Optable):
                 comptime optlike = downcast[field_types[i], Optable]
-                comptime short_name = t"-{optlike.opt_short.value()}, " if optlike.opt_short else ""
-                comptime long_name = t"{optlike.opt_long.value()}" if optlike.opt_long else String(
+                comptime short_name = String(t"-{optlike.opt_short.value()}), ") if optlike.opt_short else ""
+                comptime long_name = String(t"{optlike.opt_long.value()}") if optlike.opt_long else String(
                     t"{__to_display_name(field_name)}"
                 )
                 # TODO: better default printing if defaultable and writable
@@ -674,18 +677,18 @@ fn get_help[T: _Base, indent_level: Int = 1]() -> String:
                 comptime desc_line = t"          {fixed_help}"
 
                 comptime if optlike.opt_is_arg:
-                    comptime details_line = t"  [{long_name.upper()}]{appendable}{default}\n"
+                    comptime details_line = String(t"  [{long_name.upper()}]{appendable}{default}\n")
                     arguments.append(
                         materialize[String(details_line) + String(desc_line)]()
                     )
                 else:
-                    comptime details_line = t"  {short_name}--{long_name} <{long_name.upper()}>{appendable}{default}\n"
+                    comptime details_line = String(t"  {short_name}--{long_name} <{long_name.upper()}>{appendable}{default}\n")
                     options.append(
                         materialize[String(details_line) + String(desc_line)]()
                     )
             else:
                 # TODO: what if it's a struct?
-                comptime long_name = t"  --{field_name} <{field_name.upper()}>"
+                comptime long_name = String(t"  --{field_name} <{field_name.upper()}>")
                 options.append(materialize[long_name]())
 
         comptime if conforms_to(
@@ -699,7 +702,7 @@ fn get_help[T: _Base, indent_level: Int = 1]() -> String:
         comptime derived_indent = 0 if __is_opt[T]() else indent_level + 1
         var more_help = [
             String(t"{'     ' * derived_indent}{line}")
-            for line in get_help[field_type, derived_indent + 1]().splitlines()
+            for line in get_help[downcast[field_type, _Base], derived_indent + 1]().splitlines()
             if line
         ]
         for line in more_help:
@@ -769,7 +772,7 @@ __extension SIMD(MojOptDeserializable):
         else:
             return Scalar[Self.dtype](p.read_bool())
 
-        raise Error(t"No way to parse {get_type_name[Self.dtype]()}")
+        raise Error(t"No way to parse {Self.dtype}")
 
     @staticmethod
     fn description() -> String:
@@ -1033,95 +1036,3 @@ __extension Tuple(MojOptDeserializable):
     fn _derive_help() -> Bool:
         return False
 
-# __extension Dict(MojOptDeserializable):
-#     @staticmethod
-#     fn parse[
-#         options: ParseOptions, //
-#     ](mut p: Parser[options], out s: Self) raises:
-#         comptime assert (
-#             _type_is_eq[Self.K, String]()
-#             or get_base_type_name[Self.K]() == "LazyString"
-#         ), "Dict must have string keys"
-#         p.expect(`{`)
-#         s = Self()
-
-#         while p.peek() != `}`:
-#             var ident = rebind_var[Self.K](
-#                 _deserialize_impl[downcast[Self.K, _Base & Movable]](p)
-#             )
-#             p.expect(`:`)
-#             s[ident^] = _deserialize_impl[downcast[Self.V, _Base]](p)
-#             p.skip_whitespace()
-#             if p.peek() != `}`:
-#                 p.expect(`,`)
-#         p.expect(`}`)
-
-#     @staticmethod
-#     fn deserialize_as_array() -> Bool:
-#         return False
-
-
-# __extension Tuple(MojOptDeserializable):
-#     @staticmethod
-#     fn parse[
-#         options: ParseOptions, //
-#     ](mut p: Parser[options], out s: Self) raises:
-#         __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(s))
-#         p.expect(`[`)
-
-#         comptime for i in range(Self.__len__()):
-#             UnsafePointer(to=s[i]).init_pointee_move(
-#                 _deserialize_impl[downcast[Self.element_types[i], _Base]](p)
-#             )
-
-#             if i < Self.__len__() - 1:
-#                 p.expect(`,`)
-
-#         p.expect(`]`)
-
-#     @staticmethod
-#     fn deserialize_as_array() -> Bool:
-#         return False
-
-
-# __extension InlineArray(MojOptDeserializable):
-#     @staticmethod
-#     fn parse[
-#         options: ParseOptions, //
-#     ](mut j: Parser[options], out s: Self) raises:
-#         j.expect(`[`)
-#         s = Self(uninitialized=True)
-
-#         for i in range(size):
-#             UnsafePointer(to=s[i]).init_pointee_move(
-#                 _deserialize_impl[downcast[Self.ElementType, _Base]](j)
-#             )
-
-#             if i != size - 1:
-#                 j.expect(`,`)
-
-#         j.expect(`]`)
-
-#     @staticmethod
-#     fn deserialize_as_array() -> Bool:
-#         return False
-
-
-# __extension Set(MojOptDeserializable):
-#     @staticmethod
-#     fn parse[
-#         options: ParseOptions, //
-#     ](mut j: Parser[options], out s: Self) raises:
-#         j.expect(`[`)
-#         s = Self()
-
-#         while j.peek() != `]`:
-#             s.add(_deserialize_impl[downcast[Self.T, _Base]](j))
-#             j.skip_whitespace()
-#             if j.peek() != `]`:
-#                 j.expect(`,`)
-#         j.expect(`]`)
-
-#     @staticmethod
-#     fn deserialize_as_array() -> Bool:
-#         return False
