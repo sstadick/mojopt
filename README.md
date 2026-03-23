@@ -1,4 +1,4 @@
-# MojOpt
+# mojopt
 
 A Mojo library for parsing CLI args based on the Rust Structopt crate.
 
@@ -7,7 +7,7 @@ A Mojo library for parsing CLI args based on the Rust Structopt crate.
 
 ## Synopsis
 
-`MojOpt` is a fully featured CLI option parser that uses struct definitions to parse the CLI options.
+`mojopt` is a CLI option parser that uses struct definitions to parse the CLI options.
 
 ## Install
 
@@ -173,3 +173,8 @@ Works, TODO - write some docs on this.
 ## Known issues and todos
 
 - TODO: need more docs
+
+## Attributions
+
+- Design for this was entirely inspired by [structopt](https://github.com/TeXitoi/structopt)
+- The path for much of this reflection work was blazed by @bgreni in [EmberJson](https://github.com/bgreni/EmberJson/tree/main)
