@@ -1,6 +1,6 @@
 # mojopt
 
-A Mojo library for parsing CLI args based on the Rust Structopt crate.
+A Mojo library for parsing command line options by defining a struct.
 
 > [!WARNING]  
 > This library is under active development.
@@ -28,6 +28,34 @@ pixi add --git "https://github.com/sstadick/mojopt.git" mojopt && pixi install
 
 An example project is set up [here](https://github.com/sstadick/mojopt-demo).
 
+## Simple
+
+```mojo
+from mojopt.command import MojOpt, Commandable
+from mojopt.default import reflection_default
+from mojopt.deserialize import Opt
+
+
+@fieldwise_init
+struct Example(Commandable, Defaultable, Movable, Writable):
+    var example: Opt[String, help="Just an example string", short="e", default_value=["foobar"]]
+    var number: Opt[Int, help="Just a number", long="num", short="n", defaultable=True]
+
+    def __init__(out self):
+        self = reflection_default[Self]()
+
+    @staticmethod
+    def description() -> String:
+        return "Just an example program."
+
+    def run(self) raises:
+        print(self)
+
+
+def main() raises:
+    MojOpt[Example]().run()
+```
+
 ### Getting Started
 
 ```mojo
@@ -42,7 +70,11 @@ struct Args(Commandable, Defaultable, MojOptDeserializable, Writable):
     """Commandables default to the struct Name, but that can be overridden."""
 
     var first_name: Opt[String, help="The users first name", long="first-name", short="f"]
-    """Opt is a translucent type that supplies metadata to the parser."""
+    """Opt is a translucent type that supplies metadata to the parser.
+
+    At compile time all options are checked to ensure no conflicting long/short flags, and
+    all defaults are check to make sure they are valid.
+    """
 
     var last_name: String
     """You don't have to use Opt, though.
@@ -70,17 +102,17 @@ struct Args(Commandable, Defaultable, MojOptDeserializable, Writable):
     Additionally, fixed size positional arguments are supported such as Tuple and InlineArray.
     """
 
-    fn __init__(out self):
+    def __init__(out self):
         self = reflection_default[Self]()
 
     @staticmethod
-    fn description() -> String:
+    def description() -> String:
         return """A small example program.
         
         This program demonstrates how to use the Opt type, as well as Commandable.
         """
 
-    fn run(self) raises:
+    def run(self) raises:
         print(self)
         # Note that for Opt types you must access the inner type via `.value`
         print(self.first_name.value)
@@ -91,7 +123,6 @@ def main() raises:
     # If there is only one command, that is treated as main, but will also still work as a subcomand.
     # i.e. `./getting_started args --help` and `./getting_started --help` both work here
     MojOpt[Args]().run()
-
 ```
 
 
@@ -101,7 +132,6 @@ def main() raises:
 from mojopt.command import MojOpt, Commandable
 from mojopt.default import reflection_default
 from mojopt.deserialize import MojOptDeserializable, Opt
-from mojopt.parser import Parser
 
 
 @fieldwise_init
@@ -110,11 +140,11 @@ struct GetLanguages(Commandable, Defaultable, MojOptDeserializable, Writable):
     var last_name: Opt[String, help="Last name", default_value=["Mojo"]]
     var languages: Opt[List[String], is_arg=True, help="Languages spoken"]
 
-    fn __init__(out self):
+    def __init__(out self):
         self = reflection_default[Self]()
 
     @staticmethod
-    fn description() -> String:
+    def description() -> String:
         return "List the languages spoken."
 
     def run(self) raises:
@@ -127,11 +157,11 @@ struct GetSports(Commandable, Defaultable, MojOptDeserializable, Writable):
     var last_name: Opt[String, help="Last name", long="lastname", short="l"]
     var sports: Opt[List[String], is_arg=True, help="Sports played"]
 
-    fn __init__(out self):
+    def __init__(out self):
         self = reflection_default[Self]()
 
     @staticmethod
-    fn description() -> String:
+    def description() -> String:
         return "List the sports played."
 
     def run(self) raises:
@@ -143,11 +173,11 @@ struct Example(Commandable, Defaultable, MojOptDeserializable, Writable):
     var example: String
     var number: Int
 
-    fn __init__(out self):
+    def __init__(out self):
         self = reflection_default[Self]()
 
     @staticmethod
-    fn description() -> String:
+    def description() -> String:
         return "Options and args done't have to be Opts!"
 
     def run(self) raises:
@@ -161,18 +191,19 @@ def main() raises:
     launched either by running the program with no subcommand specified, or by specifying
     subcommand name."""
     MojOpt[GetLanguages, GetSports, Example]().run(toolkit_description=toolkit_description)
-
 ```
 
 For more examples see the [examples](./examples).
 
 ## Defining `MojOptDeserialize` for custom types
 
-Works, TODO - write some docs on this. 
+This works!
+
+- TODO: write some docs on this. 
 
 ## Known issues and todos
 
-- TODO: need more docs
+- TODO: more docs
 
 ## Attributions
 
