@@ -232,16 +232,16 @@ Commands:
   GetSports:
           List the sports played.
   Example:
-          Options and args done't have to be Opts!
+          Options and args done't have to be Opts
 > subcommands GetSports --help
 List the sports played.
 Arguments:
-  [SPORTS]... [default: `<default_not_writable>`]
+  [SPORTS]...
           Sports played
 Options:
-  -f), --firstname <FIRSTNAME> [default: `<default_not_writable>`]
+  -f), --firstname <FIRSTNAME>
           First name
-  -l), --lastname <LASTNAME> [default: `<default_not_writable>`]
+  -l), --lastname <LASTNAME>
           Last name
 ```
 

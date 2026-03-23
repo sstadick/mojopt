@@ -572,9 +572,10 @@ fn get_help[T: _Base, indent_level: Int = 1]() -> String:
                     ) if optlike.opt_default_value else String(
                         t" [default: `{downcast[field_type, Defaultable & Writable]()}`]"
                     ) if optlike.opt_defaultable
-                    and conforms_to(field_type, Writable) else String(
-                        " [default: `<default_not_writable>`]"
-                    )
+                    and conforms_to(
+                        field_type, Writable
+                    ) else " [default: `<default_not_writable>`]" if optlike.opt_defaultable
+                    and not conforms_to(field_type, Writable) else ""
                 )
                 comptime appendable = "..." if optlike.opt_is_appendable else ""
                 comptime fixed_help = optlike.opt_help.replace("\n", "          \n")
