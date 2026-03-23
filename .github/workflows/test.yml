@@ -26,7 +26,7 @@ jobs:
             - name: Run tests - pixi run t
               run: |
                   export PATH="/home/runner/.pixi/bin:$PATH"
-                  pix run t
+                  pixi run t
 
             - name: Run examples - pixi run examples
               run: |
