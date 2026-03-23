@@ -16,10 +16,7 @@ jobs:
             - name: Install dependencies and build
               run: |
                   export PATH="/home/runner/.pixi/bin:$PATH"
-                  pixi install \
-                      --channel conda-forge \
-                      --channel https://conda.modular.com/max-nightly \
-                      --channel https://repo.prefix.dev/modular-community \
+                  pixi install --locked
 
             - name: Run lint - pixi run lint
               run: |
