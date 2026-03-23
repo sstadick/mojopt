@@ -1,3 +1,5 @@
+from std.collections import Set
+
 from mojopt.command import MojOpt, Commandable
 from mojopt.default import reflection_default
 from mojopt.deserialize import MojOptDeserializable, Opt
@@ -11,7 +13,9 @@ struct Args(Commandable, Defaultable, MojOptDeserializable, Writable):
     ]
     var last_name: String
     var nested: Opt[Nested, help="A nested struct, what could go wrong?"]
-    var languages: Opt[Set[String], help="The languages the user speaks", is_arg=True]
+    var languages: Opt[
+        List[String], help="The languages the user speaks", is_arg=True
+    ]
 
     fn __init__(out self):
         self = reflection_default[Self]()
@@ -43,11 +47,13 @@ struct Nested(Defaultable, MojOptDeserializable, Writable):
           English Spanish
     ```
     """
+
     var inner_mind: Opt[String, help="Inner sanctum"]
     var outer_body: Opt[Int, help="Outer fortresss"]
 
     fn __init__(out self):
         self = reflection_default[Self]()
+
 
 def main() raises:
     MojOpt[Args]().run()

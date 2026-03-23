@@ -73,7 +73,9 @@ struct Parser[options: ParseOptions = ParseOptions()]:
         var value = self._get_next()
         return Scalar[type](atol(value))
 
-    def read_float[type: DType = DType.float64](mut self) raises -> Scalar[type]:
+    def read_float[
+        type: DType = DType.float64
+    ](mut self) raises -> Scalar[type]:
         comptime assert type.is_floating_point(), "Floats are floating point"
         var value = self._get_next()
         return Scalar[type](atof(value))

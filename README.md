@@ -83,8 +83,6 @@ Works, TODO - write some docs on this.
 
 ## Known issues and todos
 
-- TODO: Implement extensions for more base types
-- TODO: remove todos
 - TODO: update readme example
 - TODO: add ci
 - TODO: update everythign to use reexported types
