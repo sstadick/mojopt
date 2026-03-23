@@ -14,7 +14,6 @@ struct ParseOptions(Equatable, TrivialRegisterPassable):
 
     var parsing_mode: Int
 
-
     fn __init__(out self, *, parsing_mode: Int = Self.ParsingOptions):
         self.parsing_mode = parsing_mode
 
@@ -31,7 +30,7 @@ struct Parser[options: ParseOptions = ParseOptions()]:
     fn __init__(out self, var args: List[String]):
         self.cursor = 0
         self.data = args^
-    
+
     @staticmethod
     def parse[T: MojOptDeserializable & _Base]() raises MojOptErr -> T:
         var parser = Parser()
@@ -41,7 +40,6 @@ struct Parser[options: ParseOptions = ParseOptions()]:
     def parse[T: MojOptDeserializable & _Base](var args: List[String]) raises MojOptErr -> T:
         var parser = Parser(args^)
         return T.from_opts(parser)
-
 
     fn is_done(read self) -> Bool:
         return self.cursor == len(self.data)
@@ -68,6 +66,12 @@ struct Parser[options: ParseOptions = ParseOptions()]:
         else:
             raise Error("Expected bool, got: " + value)
 
-    def read_int(mut self) raises -> Int:
+    def read_int[type: DType = DType.int64](mut self) raises -> Scalar[type]:
+        comptime assert type.is_integral(), "Ints are integral"
         var value = self._get_next()
-        return atol(value)
+        return Scalar[type](atol(value))
+
+    def read_float[type: DType = DType.float64](mut self) raises -> Scalar[type]:
+        comptime assert type.is_floating_point(), "Floats are floating point"
+        var value = self._get_next()
+        return Scalar[type](atof(value))

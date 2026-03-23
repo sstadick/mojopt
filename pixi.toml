@@ -32,8 +32,9 @@ mojo-compiler = "0.*"
 [tasks]
 r = "mojo run main.mojo"
 t = { cmd = "sh -c 'find ./tests -name test_*.mojo | xargs -I % mojo run -I . -D ASSERT=all %'" }
-
+examples = { cmd = "sh -c 'find ./examples -name *.mojo | xargs -I % mojo run -I . -D ASSERT=all % --help'" }
+lint = { cmd = "mojo format --line-length 100 mojopt/* tests/* examples/*" }
 
 [dependencies]
-mojo = "0.*"
+mojo = "==0.26.2"
 # mojopt = { path = "." }
