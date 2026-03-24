@@ -559,7 +559,7 @@ fn get_help[T: _Base, indent_level: Int = 1]() -> String:
             comptime if conforms_to(field_type, Optable):
                 comptime optlike = downcast[field_types[i], Optable]
                 comptime short_name = String(
-                    t"-{optlike.opt_short.value()}), "
+                    t"-{optlike.opt_short.value()}, "
                 ) if optlike.opt_short else ""
                 comptime long_name = String(
                     t"{optlike.opt_long.value()}"
@@ -575,11 +575,11 @@ fn get_help[T: _Base, indent_level: Int = 1]() -> String:
                     and conforms_to(
                         field_type, Writable
                     ) else " [default: `<default_not_writable>`]" if optlike.opt_defaultable
-                    and not conforms_to(field_type, Writable) else ""
+                    and not conforms_to(field_type, Writable) else " [Required]"
                 )
                 comptime appendable = "..." if optlike.opt_is_appendable else ""
-                comptime fixed_help = optlike.opt_help.replace("\n", "          \n")
-                comptime desc_line = t"          {fixed_help}"
+                comptime fixed_help = optlike.opt_help.replace("\n", "    \n")
+                comptime desc_line = t"    {fixed_help}"
 
                 comptime if optlike.opt_is_arg:
                     comptime details_line = String(
@@ -588,11 +588,11 @@ fn get_help[T: _Base, indent_level: Int = 1]() -> String:
                     arguments.append(materialize[String(details_line) + String(desc_line)]())
                 else:
                     comptime details_line = String(
-                        t"  {short_name}--{long_name} <{long_name.upper()}>{appendable}{default}\n"
+                        t"  {short_name}--{long_name} {long_name.upper()}{appendable}{default}\n"
                     )
                     options.append(materialize[String(details_line) + String(desc_line)]())
             else:
-                comptime long_name = String(t"  --{field_name} <{field_name.upper()}>")
+                comptime long_name = String(t"  --{__to_display_name(field_name)} {field_name.upper()} [Required]")
                 options.append(materialize[long_name]())
 
         comptime if conforms_to(field_type, MojOptDeserializable) and not downcast[
@@ -613,12 +613,12 @@ fn get_help[T: _Base, indent_level: Int = 1]() -> String:
     if len(arguments) > 0:
         if not __is_opt[T]():
             final_list.append("Arguments:")
-        final_list.append("\n".join(arguments))
+        final_list.append("\n\n".join(arguments))
 
     if len(options) > 0:
         if not __is_opt[T]():
             final_list.append("Options:")
-        final_list.append("\n".join(options))
+        final_list.append("\n\n".join(options))
 
     var final = "\n".join(final_list)
     return final

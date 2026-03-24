@@ -139,14 +139,14 @@ A small example program.
 This program demonstrates how to use the Opt type, as well as Commandable.
 
 Arguments:
-  [LANGUAGES]... [default: `<default_not_writable>`]
+  [LANGUAGES]...
           The languages the user speaks
 Options:
-  -f), --first-name <FIRST-NAME> [default: `<default_not_writable>`]
+  -f), --first-name <FIRST-NAME>
           The users first name
   --last_name <LAST_NAME>
   -s), --special <SPECIAL> [default: `42`]
-          Super special numbers
+          Super special number.
 ```
 
 ### Subcommands
