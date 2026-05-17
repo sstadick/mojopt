@@ -2,9 +2,6 @@ name: Diagnose TestSuite
 
 on:
     workflow_dispatch:
-    push:
-        branches:
-            - chore/mojo_v1_b
 
 jobs:
     testsuite-targets:

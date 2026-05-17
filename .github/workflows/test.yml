@@ -1,6 +1,7 @@
 name: Test
 on: [push, pull_request]
 env:
+    # Mojo 1.0.0b1 can select AVX512 features on GitHub AMD runners that do not expose them.
     MOJO_CI_TARGET_FEATURES: "-avx512f,-avx512bw,-avx512cd,-avx512dq,-avx512vl,-avx512ifma,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512fp16,-avx512bf16"
 jobs:
     test:
