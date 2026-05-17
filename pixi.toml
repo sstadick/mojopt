@@ -21,13 +21,13 @@ backend = { name = "pixi-build-mojo", version = "0.*", channels = [
 ] }
 
 [package.host-dependencies]
-mojo-compiler = "==0.26.2"
+mojo-compiler = "==1.0.0b1"
 
 [package.build-dependencies]
-mojo-compiler = "==0.26.2"
+mojo-compiler = "==1.0.0b1"
 
 [package.run-dependencies]
-mojo-compiler = "==0.26.2"
+mojo-compiler = "==1.0.0b1"
 
 [tasks]
 r = "mojo run main.mojo"
@@ -41,5 +41,5 @@ mojo run -I . scripts/generate_readme_examples.mojo --program ./examples/subcomm
 """
 
 [dependencies]
-mojo = "==0.26.2"
+mojo = "==1.0.0b1"
 # mojopt = { path = "." }

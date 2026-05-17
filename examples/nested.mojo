@@ -10,17 +10,17 @@ struct Args(Commandable, Defaultable, MojOptDeserializable, Writable):
     var nested: Opt[Nested, help="A nested struct, what could go wrong?"]
     var languages: Opt[List[String], help="The languages the user speaks", is_arg=True]
 
-    fn __init__(out self):
+    def __init__(out self):
         self = reflection_default[Self]()
 
     @staticmethod
-    fn description() -> String:
+    def description() -> String:
         return """A small example program.
         
         This program demonstrates how to use the Opt type, as well as Commandable.
         """
 
-    fn run(self) raises:
+    def run(self) raises:
         print(self)
 
 
@@ -44,7 +44,7 @@ struct Nested(Defaultable, MojOptDeserializable, Writable):
     var inner_mind: Opt[String, help="Inner sanctum"]
     var outer_body: Opt[Int, help="Outer fortresss"]
 
-    fn __init__(out self):
+    def __init__(out self):
         self = reflection_default[Self]()
 
 

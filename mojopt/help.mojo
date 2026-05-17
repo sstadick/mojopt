@@ -1,18 +1,12 @@
 from mojopt.deserialize import MojOptDeserializable, Optable, _Base, __is_opt, __to_display_name
 
-from std.reflection import (
-    struct_field_count,
-    struct_field_types,
-    struct_field_names,
-    is_struct_type,
-    get_base_type_name,
-)
 from std.builtin.rebind import downcast
 
 
-fn get_help[T: _Base, indent_level: Int = 1]() -> String:
-    comptime field_names = struct_field_names[T]()
-    comptime field_types = struct_field_types[T]()
+def get_help[T: _Base, indent_level: Int = 1]() -> String:
+    comptime r = reflect[T]()
+    comptime field_names = r.field_names()
+    comptime field_types = r.field_types()
 
     var options: List[String] = []
     var arguments: List[String] = []
@@ -27,9 +21,8 @@ fn get_help[T: _Base, indent_level: Int = 1]() -> String:
     comptime for i in range(0, len(field_names)):
         comptime field_type = field_types[i]
         comptime field_name = field_names[i]
-        comptime type_name = get_base_type_name[field_type]()
 
-        comptime if not is_struct_type[field_type]():
+        comptime if not reflect[field_type]().is_struct():
             continue
 
         comptime if not __is_opt[T]():
@@ -37,7 +30,7 @@ fn get_help[T: _Base, indent_level: Int = 1]() -> String:
                 comptime optlike = downcast[field_types[i], Optable]
                 comptime short_name = String(
                     t"-{optlike.opt_short.value()}, "
-                ) if optlike.opt_short else ""
+                ) if optlike.opt_short else String("")
                 comptime long_name = String(
                     t"{optlike.opt_long.value()}"
                 ) if optlike.opt_long else String(t"{__to_display_name(field_name)}")
@@ -49,12 +42,12 @@ fn get_help[T: _Base, indent_level: Int = 1]() -> String:
                     ) if optlike.opt_default_value else String(
                         t" [default: `{downcast[field_type, Defaultable & Writable]()}`]"
                     ) if optlike.opt_defaultable
-                    and conforms_to(
-                        field_type, Writable
-                    ) else " [default: `<default_not_writable>`]" if optlike.opt_defaultable
-                    and not conforms_to(field_type, Writable) else " [Required]"
+                    and conforms_to(field_type, Writable) else String(
+                        " [default: `<default_not_writable>`]"
+                    ) if optlike.opt_defaultable
+                    and not conforms_to(field_type, Writable) else String(" [Required]")
                 )
-                comptime appendable = "..." if optlike.opt_is_appendable else ""
+                comptime appendable = String("...") if optlike.opt_is_appendable else String("")
                 comptime fixed_help = optlike.opt_help.replace("\n", "    \n")
                 comptime desc_line = t"    {fixed_help}"
 

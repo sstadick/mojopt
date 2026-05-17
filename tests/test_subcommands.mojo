@@ -32,7 +32,7 @@ struct Args1(Commandable, Defaultable, MojOptDeserializable):
         default_value=["42", "43"],
     ]
 
-    fn __init__(out self):
+    def __init__(out self):
         self.my_flag = {False}
         self.my_string = {"bar"}
         self.my_custom = {CustomType()}
@@ -41,10 +41,10 @@ struct Args1(Commandable, Defaultable, MojOptDeserializable):
         self.remaining_args = {[]}
 
     @staticmethod
-    fn description() -> String:
+    def description() -> String:
         return "Command 1 for testing"
 
-    fn run(self) raises:
+    def run(self) raises:
         assert_true(self.my_flag.value)
         assert_equal(self.my_string.value, "blah")
         assert_equal(self.my_custom.value, CustomType("John", "Doe"))
@@ -55,12 +55,12 @@ struct CustomType(Copyable, Defaultable, Equatable, MojOptDeserializable, Writab
     var first_name: String
     var last_name: String
 
-    fn __init__(out self):
+    def __init__(out self):
         self.first_name = "Darth"
         self.last_name = "Vadar"
 
     @implicit
-    fn __init__[
+    def __init__[
         help: String,
         default_value: Optional[List[String]],
         defaultable: Bool,
@@ -71,7 +71,7 @@ struct CustomType(Copyable, Defaultable, Equatable, MojOptDeserializable, Writab
         self = opt.value.copy()
 
     @staticmethod
-    fn from_opts[options: ParseOptions, //](mut p: Parser[options], out s: Self) raises MojOptErr:
+    def from_opts[options: ParseOptions, //](mut p: Parser[options], out s: Self) raises MojOptErr:
         s = Self()
         s.first_name = p.read_string()
         s.last_name = p.read_string()
@@ -83,14 +83,14 @@ struct Args2(Commandable, Defaultable, MojOptDeserializable):
     var position: String
     var placed: Bool
 
-    fn __init__(out self):
+    def __init__(out self):
         self = reflection_default[Self]()
 
     @staticmethod
-    fn description() -> String:
+    def description() -> String:
         return "Command 2 for testing"
 
-    fn run(self) raises:
+    def run(self) raises:
         assert_true(self.placed)
         assert_equal(self.sport, "typing")
         assert_equal(self.position, "homerow")

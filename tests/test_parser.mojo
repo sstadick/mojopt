@@ -35,7 +35,7 @@ struct Args(Defaultable, MojOptDeserializable):
         default_value=["42", "43"],
     ]
 
-    fn __init__(out self):
+    def __init__(out self):
         self.my_flag = {False}
         self.my_string = {"bar"}
         self.my_custom = {CustomType()}
@@ -49,12 +49,12 @@ struct CustomType(Copyable, Defaultable, Equatable, MojOptDeserializable, Writab
     var first_name: String
     var last_name: String
 
-    fn __init__(out self):
+    def __init__(out self):
         self.first_name = "Darth"
         self.last_name = "Vadar"
 
     @implicit
-    fn __init__[
+    def __init__[
         help: String,
         default_value: Optional[List[String]],
         defaultable: Bool,
@@ -65,13 +65,13 @@ struct CustomType(Copyable, Defaultable, Equatable, MojOptDeserializable, Writab
         self = opt.value.copy()
 
     @staticmethod
-    fn from_opts[options: ParseOptions, //](mut p: Parser[options], out s: Self) raises MojOptErr:
+    def from_opts[options: ParseOptions, //](mut p: Parser[options], out s: Self) raises MojOptErr:
         s = Self()
         s.first_name = p.read_string()
         s.last_name = p.read_string()
 
 
-fn s(string_literal: StringLiteral) -> StaticString:
+def s(string_literal: StringLiteral) -> StaticString:
     return StaticString(string_literal)
 
 
@@ -401,12 +401,12 @@ struct ArgsBare(Defaultable, MojOptDeserializable):
         default_value=["cat", "mouse", "dog"],
     ]
 
-    fn __init__(out self):
+    def __init__(out self):
         self.my_int = Int()
         self.complex = {[]}
 
     @staticmethod
-    fn description() -> String:
+    def description() -> String:
         return """Just a simple example program.
 
         What could possibly go wrong?
@@ -467,13 +467,13 @@ struct ArgsBareType(Defaultable, MojOptDeserializable):
     # Uncomment to get compiler error about multiple List args
     # var many: Opt[List[Int], is_arg=True]
 
-    fn __init__(out self):
+    def __init__(out self):
         self.my_num = Int()
         self.complex = {BareComplex()}
         # self.many = {[]}
 
     @staticmethod
-    fn description() -> String:
+    def description() -> String:
         return """Just a simple example program.
 
         What could possibly go wrong?
@@ -486,7 +486,7 @@ struct BareComplex(Defaultable, ImplicitlyDestructible, Movable):
     var thing: String
     var many: Opt[List[Int], is_arg=True]
 
-    fn __init__(out self):
+    def __init__(out self):
         self.animal = "cat"
         self.thing = "chair"
         self.many = {[]}
@@ -518,7 +518,7 @@ struct DefaultableLarge(Defaultable, ImplicitlyDestructible, MojOptDeserializabl
     var large: Opt[Thing, defaultable=True]
     var confusing: Opt[String, defaultable=True, default_value=["BrainExplode"]]
 
-    fn __init__(out self):
+    def __init__(out self):
         self = reflection_default[Self]()
 
 
@@ -527,7 +527,7 @@ struct Thing(Defaultable, ImplicitlyDestructible, Movable):
     var one: Int
     var name: String
 
-    fn __init__(out self):
+    def __init__(out self):
         self.one = 1
         self.name = "batman"
 
@@ -546,7 +546,7 @@ def test_defaultable_opts() raises:
 struct StringTest(Defaultable, MojOptDeserializable):
     var item: String
 
-    fn __init__(out self):
+    def __init__(out self):
         self = reflection_default[Self]()
 
 
@@ -560,7 +560,7 @@ def test_string() raises:
 struct IntTest(Defaultable, MojOptDeserializable):
     var item: Int
 
-    fn __init__(out self):
+    def __init__(out self):
         self = reflection_default[Self]()
 
 
@@ -574,7 +574,7 @@ def test_int() raises:
 struct BoolTest(Defaultable, MojOptDeserializable):
     var item: Bool
 
-    fn __init__(out self):
+    def __init__(out self):
         self = reflection_default[Self]()
 
 
@@ -588,7 +588,7 @@ def test_bool() raises:
 struct FloatTest(Defaultable, MojOptDeserializable):
     var item: Float64
 
-    fn __init__(out self):
+    def __init__(out self):
         self = reflection_default[Self]()
 
 
@@ -603,7 +603,7 @@ struct IntLiteralTest(Defaultable, MojOptDeserializable):
     comptime Lit = 42
     var item: type_of(Self.Lit)
 
-    fn __init__(out self):
+    def __init__(out self):
         self = reflection_default[Self]()
 
 
@@ -618,7 +618,7 @@ struct FloatLiteralTest(Defaultable, MojOptDeserializable):
     comptime Lit = 42.42
     var item: type_of(Self.Lit)
 
-    fn __init__(out self):
+    def __init__(out self):
         self = reflection_default[Self]()
 
 
@@ -635,7 +635,7 @@ from std.memory import ArcPointer
 struct ArcPointerTest(Defaultable, MojOptDeserializable):
     var item: ArcPointer[String]
 
-    fn __init__(out self):
+    def __init__(out self):
         self.item = ArcPointer("foo")
 
 
@@ -652,7 +652,7 @@ from std.memory import OwnedPointer
 struct OwnedPointerTest(Defaultable, MojOptDeserializable):
     var item: OwnedPointer[String]
 
-    fn __init__(out self):
+    def __init__(out self):
         self.item = OwnedPointer("foo")
 
 
@@ -666,7 +666,7 @@ def test_ownedpointer() raises:
 struct OptionalTest(Defaultable, MojOptDeserializable):
     var item: Optional[String]
 
-    fn __init__(out self):
+    def __init__(out self):
         self.item = None
 
 
@@ -684,7 +684,7 @@ def test_optional() raises:
 struct ListTest(Defaultable, MojOptDeserializable):
     var item: List[Int]
 
-    fn __init__(out self):
+    def __init__(out self):
         self.item = []
 
 
@@ -701,7 +701,7 @@ from std.collections import Set
 struct SetTest(Defaultable, MojOptDeserializable):
     var item: Set[Int]
 
-    fn __init__(out self):
+    def __init__(out self):
         self.item = {}
 
 
@@ -716,7 +716,7 @@ struct InlineArrayTest(Defaultable, MojOptDeserializable):
     var item: Opt[InlineArray[Int, 3], is_arg=True]
     # var item2: InlineArray[Int, 3] # Uncomment to induce compiler error
 
-    fn __init__(out self):
+    def __init__(out self):
         self.item = {InlineArray[Int, 3](fill=0)}
         # self.item2 = InlineArray[Int, 3](fill=0)
 
@@ -732,7 +732,7 @@ struct TupleTest(Defaultable, MojOptDeserializable):
     var item: Opt[Tuple[Int, String, Float64], is_arg=True]
     # var item2: InlineArray[Int, 3] # Uncomment to induce compiler error
 
-    fn __init__(out self):
+    def __init__(out self):
         self.item = {Tuple(0, "0", 0.0)}
         # self.item2 = InlineArray[Int, 3](fill=0)
 
@@ -748,7 +748,7 @@ struct NestedTupleTest(Defaultable, MojOptDeserializable):
     var item: Opt[Tuple[Int, String, Tuple[Int, String]], is_arg=True]
     # var item2: InlineArray[Int, 3] # Uncomment to induce compiler error
 
-    fn __init__(out self):
+    def __init__(out self):
         self.item = {Tuple(0, "0", Tuple(1, "1"))}
 
 

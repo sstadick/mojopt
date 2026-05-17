@@ -10,7 +10,7 @@ struct DisplayHelp(Movable, Writable):
 
 
 @always_inline
-fn default_handling(e: MojOptErr):
+def default_handling(e: MojOptErr):
     if e.isa[DisplayHelp]():
         print(e[DisplayHelp].help)
         exit(0)
