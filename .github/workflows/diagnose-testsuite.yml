@@ -47,6 +47,8 @@ jobs:
                       echo "::group::${name}"
                       echo "file=${file}"
                       echo "flags=$*"
+                      echo "effective target:"
+                      pixi run mojo build "$@" --print-effective-target -I . -D ASSERT=all "${file}" || true
                       set +e
                       pixi run mojo run "$@" -I . -D ASSERT=all "${file}"
                       local status=$?
@@ -56,6 +58,9 @@ jobs:
                       echo "::endgroup::"
                   }
 
+                  run_case "discover/default" .github/diagnostics/discover_tests.mojo
+                  run_case "discover/haswell" .github/diagnostics/discover_tests.mojo --target-cpu=haswell
+                  run_case "discover/no-avx512" .github/diagnostics/discover_tests.mojo --target-features=-avx512f,-avx512bw,-avx512cd,-avx512dq,-avx512vl,-avx512ifma,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512fp16,-avx512bf16
                   run_case "parser/default" /tmp/mojopt-testsuite-diagnostic/test_parser.mojo
                   run_case "parser/haswell" /tmp/mojopt-testsuite-diagnostic/test_parser.mojo --target-cpu=haswell
                   run_case "parser/no-avx512" /tmp/mojopt-testsuite-diagnostic/test_parser.mojo --target-features=-avx512f,-avx512bw,-avx512cd,-avx512dq,-avx512vl,-avx512ifma,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512fp16,-avx512bf16
