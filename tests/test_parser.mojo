@@ -3,6 +3,7 @@ from std.testing import (
     assert_raises,
     assert_true,
     assert_false,
+    TestSuite,
 )
 
 from mojopt.default import reflection_default
@@ -761,35 +762,4 @@ def test_nested_tuple() raises:
 
 
 def main() raises:
-    test_mojopt_basic()
-    test_mojopt_basic_short_opts()
-    test_mojopt_flag_default()
-    test_mojopt_mixed_order()
-    test_mojopt_opt_helper_default()
-    test_mojopt_defaultable_default()
-    test_mojopt_unexpected_value_after_flag()
-    test_mojopt_unexpected_value_after_opt()
-    test_mojopt_basic_positional_args()
-    test_mojopt_basic_positional_args_list()
-    test_mojopt_jumbled_positional_args_list()
-    test_mojopt_basic_repeated_opt_list()
-    test_mojopt_jumbled_repeated_opt_list()
-    test_mojopt_default_repeated_opt_list()
-    test_mojopt_default_args_list()
-    test_bare_args()
-    test_bare_complex()
-    test_defaultable_opts()
-    test_string()
-    test_int()
-    test_bool()
-    test_float()
-    test_int_literal()
-    test_float_literal()
-    test_arcpointer()
-    test_ownedpointer()
-    test_optional()
-    test_list()
-    test_set()
-    test_inlinearray()
-    test_tuple()
-    test_nested_tuple()
+    TestSuite.discover_tests[__functions_in_module()]().run()
