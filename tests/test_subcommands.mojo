@@ -3,7 +3,6 @@ from std.testing import (
     assert_raises,
     assert_true,
     assert_false,
-    TestSuite,
 )
 
 from mojopt.default import reflection_default
@@ -133,7 +132,5 @@ def test_mojopt_arg2() raises:
 
 
 def main() raises:
-    var suite = TestSuite()
-    suite.test[test_mojopt_main]()
-    suite.test[test_mojopt_arg2]()
-    suite^.run()
+    test_mojopt_main()
+    test_mojopt_arg2()
