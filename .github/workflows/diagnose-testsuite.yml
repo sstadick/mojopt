@@ -1,0 +1,72 @@
+name: Diagnose TestSuite
+
+on:
+    workflow_dispatch:
+    push:
+        branches:
+            - chore/mojo_v1_b
+
+jobs:
+    testsuite-targets:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Install pixi CLI
+              run: |
+                  curl -fsSL https://pixi.sh/install.sh | sh
+                  echo "$HOME/.pixi/bin" >> "$GITHUB_PATH"
+
+            - name: Install dependencies
+              run: pixi install --locked
+
+            - name: Print host and Mojo target details
+              run: |
+                  set -x
+                  lscpu
+                  pixi info
+                  pixi run mojo --version
+
+            - name: Run TestSuite repro across target settings
+              run: |
+                  set -u
+
+                  mkdir -p /tmp/mojopt-testsuite-diagnostic
+                  git show b163c224ac2e609b3da2bf1b871efef512779257:tests/test_parser.mojo > /tmp/mojopt-testsuite-diagnostic/test_parser.mojo
+                  git show b163c224ac2e609b3da2bf1b871efef512779257:tests/test_subcommands.mojo > /tmp/mojopt-testsuite-diagnostic/test_subcommands.mojo
+
+                  run_case() {
+                      local name="$1"
+                      local file="$2"
+                      shift 2
+
+                      echo "::group::${name}"
+                      echo "file=${file}"
+                      echo "flags=$*"
+                      set +e
+                      pixi run mojo run "$@" -I . -D ASSERT=all "${file}"
+                      local status=$?
+                      set -e
+                      echo "status=${status}"
+                      echo "${name}: ${status}" >> /tmp/mojopt-testsuite-diagnostic/results.txt
+                      echo "::endgroup::"
+                  }
+
+                  run_case "parser/default" /tmp/mojopt-testsuite-diagnostic/test_parser.mojo
+                  run_case "parser/haswell" /tmp/mojopt-testsuite-diagnostic/test_parser.mojo --target-cpu=haswell
+                  run_case "parser/no-avx512" /tmp/mojopt-testsuite-diagnostic/test_parser.mojo --target-features=-avx512f,-avx512bw,-avx512cd,-avx512dq,-avx512vl,-avx512ifma,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512fp16,-avx512bf16
+                  run_case "subcommands/default" /tmp/mojopt-testsuite-diagnostic/test_subcommands.mojo
+                  run_case "subcommands/haswell" /tmp/mojopt-testsuite-diagnostic/test_subcommands.mojo --target-cpu=haswell
+                  run_case "subcommands/no-avx512" /tmp/mojopt-testsuite-diagnostic/test_subcommands.mojo --target-features=-avx512f,-avx512bw,-avx512cd,-avx512dq,-avx512vl,-avx512ifma,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512fp16,-avx512bf16
+
+                  echo "## TestSuite target diagnostic" >> "$GITHUB_STEP_SUMMARY"
+                  echo "" >> "$GITHUB_STEP_SUMMARY"
+                  echo '```text' >> "$GITHUB_STEP_SUMMARY"
+                  cat /tmp/mojopt-testsuite-diagnostic/results.txt >> "$GITHUB_STEP_SUMMARY"
+                  echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+                  cat /tmp/mojopt-testsuite-diagnostic/results.txt
