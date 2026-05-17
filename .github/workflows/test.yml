@@ -23,7 +23,7 @@ jobs:
             - name: Print Mojo CI target
               run: |
                   export PATH="/home/runner/.pixi/bin:$PATH"
-                  mojo build --target-features="$MOJO_CI_TARGET_FEATURES" --print-effective-target .github/diagnostics/discover_tests.mojo
+                  pixi run mojo build --target-features="$MOJO_CI_TARGET_FEATURES" --print-effective-target .github/diagnostics/discover_tests.mojo
 
             - name: Run lint - pixi run lint
               run: |
@@ -33,9 +33,9 @@ jobs:
             - name: Run tests
               run: |
                   export PATH="/home/runner/.pixi/bin:$PATH"
-                  find ./tests -name test_*.mojo | xargs -I % mojo run --target-features="$MOJO_CI_TARGET_FEATURES" -I . -D ASSERT=all %
+                  pixi run sh -c 'find ./tests -name test_*.mojo | xargs -I % mojo run --target-features="$MOJO_CI_TARGET_FEATURES" -I . -D ASSERT=all %'
 
             - name: Run examples
               run: |
                   export PATH="/home/runner/.pixi/bin:$PATH"
-                  find ./examples -name "*.mojo" | xargs -I % mojo run --target-features="$MOJO_CI_TARGET_FEATURES" -I . -D ASSERT=all % --help
+                  pixi run sh -c 'find ./examples -name "*.mojo" | xargs -I % mojo run --target-features="$MOJO_CI_TARGET_FEATURES" -I . -D ASSERT=all % --help'
