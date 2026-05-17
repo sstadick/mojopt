@@ -11,7 +11,7 @@ preview = ["pixi-build"]
 
 [package]
 name = "mojopt"
-version = "0.1.0"
+version = "0.3.0"
 
 [package.build]
 backend = { name = "pixi-build-mojo", version = "0.*", channels = [
