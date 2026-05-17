@@ -133,4 +133,7 @@ def test_mojopt_arg2() raises:
 
 
 def main() raises:
-    TestSuite.discover_tests[__functions_in_module()]().run()
+    var suite = TestSuite()
+    suite.test[test_mojopt_main]()
+    suite.test[test_mojopt_arg2]()
+    suite^.run()
