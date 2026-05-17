@@ -1,5 +1,7 @@
 name: Test
 on: [push, pull_request]
+env:
+    MOJO_CI_TARGET_FEATURES: "-avx512f,-avx512bw,-avx512cd,-avx512dq,-avx512vl,-avx512ifma,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512fp16,-avx512bf16"
 jobs:
     test:
         runs-on: ubuntu-latest
@@ -18,18 +20,22 @@ jobs:
                   export PATH="/home/runner/.pixi/bin:$PATH"
                   pixi install --locked
 
+            - name: Print Mojo CI target
+              run: |
+                  export PATH="/home/runner/.pixi/bin:$PATH"
+                  mojo build --target-features="$MOJO_CI_TARGET_FEATURES" --print-effective-target .github/diagnostics/discover_tests.mojo
+
             - name: Run lint - pixi run lint
               run: |
                   export PATH="/home/runner/.pixi/bin:$PATH"
                   if pixi run lint 2>&1 | grep -E "reformatted|error|failed" ; then echo "Formatter failed" ; exit 1 ; else echo "Formatting OK"; fi
 
-            - name: Run tests - pixi run t
+            - name: Run tests
               run: |
                   export PATH="/home/runner/.pixi/bin:$PATH"
-                  pixi run t
+                  find ./tests -name test_*.mojo | xargs -I % mojo run --target-features="$MOJO_CI_TARGET_FEATURES" -I . -D ASSERT=all %
 
-            - name: Run examples - pixi run examples
+            - name: Run examples
               run: |
                   export PATH="/home/runner/.pixi/bin:$PATH"
-                  pixi run examples
-
+                  find ./examples -name "*.mojo" | xargs -I % mojo run --target-features="$MOJO_CI_TARGET_FEATURES" -I . -D ASSERT=all % --help
