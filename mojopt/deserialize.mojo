@@ -158,12 +158,12 @@ struct Opt[
     ](mut self, mut p: Parser[options]) raises MojOptErr where conforms_to(
         Self.T, MojOptDeserializableAppendable
     ):
-        trait_downcast[MojOptDeserializableAppendable](self.value).append_parse(p)
+        self.value.append_parse(p)
 
     def append_to(
         mut self, var value: Some[Copyable & _Base]
     ) where conforms_to(Self.T, Appendable):
-        trait_downcast[Appendable](self.value).append_to(value^)
+        self.value.append_to(value^)
 
     @staticmethod
     def _derive_help() -> Bool:
@@ -187,14 +187,14 @@ struct Opt[
         return True
 
     def __bool__(self) -> Bool where conforms_to(Self.T, Boolable):
-        return trait_downcast[Boolable](self.value).__bool__()
+        return self.value.__bool__()
 
     def __eq__(self, other: Self) -> Bool where conforms_to(Self.T, Equatable):
-        return trait_downcast[Equatable](self.value).__eq__(trait_downcast[Equatable](other.value))
+        return self.value == other.value
 
     def write_to(self, mut writer: Some[Writer]):
         comptime if conforms_to(Self.T, Writable):
-            writer.write(trait_downcast[Writable](self.value))
+            writer.write(self.value)
         else:
             writer.write("Opt")
 
