@@ -37,17 +37,17 @@ struct Args(Commandable, Defaultable, MojOptDeserializable, Writable):
     Additionally, fixed size positional arguments are supported such as Tuple and InlineArray.
     """
 
-    fn __init__(out self):
+    def __init__(out self):
         self = reflection_default[Self]()
 
     @staticmethod
-    fn description() -> String:
+    def description() -> String:
         return """A small example program.
         
         This program demonstrates how to use the Opt type, as well as Commandable.
         """
 
-    fn run(self) raises:
+    def run(self) raises:
         print(self)
         # Note that for Opt types you must access the inner type via `.value`
         print(self.first_name.value)

@@ -32,4 +32,3 @@ jobs:
               run: |
                   export PATH="/home/runner/.pixi/bin:$PATH"
                   pixi run examples
-

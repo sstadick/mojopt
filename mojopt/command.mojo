@@ -1,16 +1,15 @@
-from std.reflection import get_base_type_name
 from std.sys import argv, exit
 
 from mojopt.deserialize import MojOptDeserializable
 from mojopt.parser import Parser
-from mojopt.error import DisplayHelp, default_handling
+from mojopt.error import default_handling
 
 # TODO: Parser should take a slice
 # TODO: convert from PascalCase to kebab-case for subcommands?
 
 
 trait Commandable(MojOptDeserializable):
-    comptime name: String = get_base_type_name[Self]()
+    comptime name: String = String(reflect[Self]().base_name())
 
     def run(self) raises:
         ...
@@ -19,23 +18,23 @@ trait Commandable(MojOptDeserializable):
 struct MojOpt[*CommandTypes: Commandable](Movable):
     var argv: List[String]
 
-    fn __init__(out self):
+    def __init__(out self):
         # TODO: probably hang onto the binary name later
         comptime assert (
-            Variadic.size(Self.CommandTypes) > 0
+            len(Self.CommandTypes) > 0
         ), "Must pass in at least one Commandable type to MojOpt."
         self.argv = [String(arg) for arg in argv()[1:]]
 
-    fn __init__(out self, var argv: List[String]):
+    def __init__(out self, var argv: List[String]):
         comptime assert (
-            Variadic.size(Self.CommandTypes) > 0
+            len(Self.CommandTypes) > 0
         ), "Must pass in at least one Commandable type to MojOpt."
         self.argv = argv^
 
     def run(self, toolkit_description: String = "") raises:
         # Single Command used to build MojOpt, treat is as "main" and allow it to work
         # with our without spelling out the subcommand.
-        comptime if Variadic.size(Self.CommandTypes) == 1:
+        comptime if len(Self.CommandTypes) == 1:
             if len(self.argv) > 0 and Self.CommandTypes[0].name == self.argv[0]:
                 try:
                     var args = Parser.parse[Self.CommandTypes[0]](List(self.argv[1:]))
@@ -51,7 +50,7 @@ struct MojOpt[*CommandTypes: Commandable](Movable):
             return
 
         # Test each command to see if it matches.
-        comptime for i in range(Variadic.size(Self.CommandTypes)):
+        comptime for i in range(len(Self.CommandTypes)):
             if len(self.argv) > 0 and Self.CommandTypes[i].name == self.argv[0]:
                 try:
                     var args = Parser.parse[Self.CommandTypes[i]](List(self.argv[1:]))
@@ -61,10 +60,10 @@ struct MojOpt[*CommandTypes: Commandable](Movable):
                     default_handling(e)
         else:
             if len(self.argv) > 0 and (self.argv[0] == "--help" or self.argv[0] == "-h"):
-                if len(toolkit_description) > 0:
+                if toolkit_description.byte_length() > 0:
                     print("\n".join([line.lstrip() for line in toolkit_description.splitlines()]))
                 print("\nCommands:")
-                comptime for i in range(Variadic.size(Self.CommandTypes)):
+                comptime for i in range(len(Self.CommandTypes)):
                     print(t"  {Self.CommandTypes[i].name}:")
                     print(
                         "\n".join(

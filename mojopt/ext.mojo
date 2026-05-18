@@ -3,7 +3,7 @@ from mojopt.deserialize import Opt
 
 __extension String:
     @implicit
-    fn __init__[
+    def __init__[
         help: String,
         default_value: Optional[List[String]],
         defaultable: Bool,
@@ -16,7 +16,7 @@ __extension String:
 
 __extension Int:
     @implicit
-    fn __init__[
+    def __init__[
         help: String,
         default_value: Optional[List[String]],
         defaultable: Bool,
@@ -29,7 +29,7 @@ __extension Int:
 
 __extension Bool:
     @implicit
-    fn __init__[
+    def __init__[
         help: String,
         default_value: Optional[List[String]],
         defaultable: Bool,
@@ -42,7 +42,7 @@ __extension Bool:
 
 __extension List:
     @implicit
-    fn __init__[
+    def __init__[
         T: Copyable,
         help: String,
         default_value: Optional[List[String]],

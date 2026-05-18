@@ -14,7 +14,7 @@ struct ParseOptions(Equatable, TrivialRegisterPassable):
 
     var parsing_mode: Int
 
-    fn __init__(out self, *, parsing_mode: Int = Self.ParsingOptions):
+    def __init__(out self, *, parsing_mode: Int = Self.ParsingOptions):
         self.parsing_mode = parsing_mode
 
 
@@ -22,12 +22,12 @@ struct Parser[options: ParseOptions = ParseOptions()]:
     var cursor: Int
     var data: List[String]
 
-    fn __init__(out self):
+    def __init__(out self):
         self.cursor = 0
         # Skip the first arg as it's the program name.
         self.data = [String(s) for s in argv()[1:]]
 
-    fn __init__(out self, var args: List[String]):
+    def __init__(out self, var args: List[String]):
         self.cursor = 0
         self.data = args^
 
@@ -41,10 +41,10 @@ struct Parser[options: ParseOptions = ParseOptions()]:
         var parser = Parser(args^)
         return T.from_opts(parser)
 
-    fn is_done(read self) -> Bool:
+    def is_done(read self) -> Bool:
         return self.cursor == len(self.data)
 
-    fn _get_next(mut self) -> String:
+    def _get_next(mut self) -> String:
         debug_assert(
             self.cursor < len(self.data),
             "Parser cursor has gone past end of data.",
@@ -53,7 +53,7 @@ struct Parser[options: ParseOptions = ParseOptions()]:
         self.cursor += 1
         return value
 
-    fn read_string(mut self) -> String:
+    def read_string(mut self) -> String:
         # TODO: return ref
         return self._get_next()
 
