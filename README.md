@@ -11,6 +11,9 @@ A Mojo library for parsing CLI args based on the Rust Structopt crate.
 
 ## Install
 
+MojOpt 0.5.0 targets **Mojo 1.1.0**. Use the stable
+`https://conda.modular.com/max` channel for Mojo.
+
 From Modular Community:
 
 ```bash

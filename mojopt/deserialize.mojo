@@ -1,14 +1,9 @@
 from std.builtin.rebind import downcast
 from std.collections import Set
 from std.collections.string.string_span import _get_kgen_string
-from std.memory import (
-    ArcPointer,
-    forget_deinit,
-    is_trivially_deletable,
-    OwnedPointer,
-    UnsafeMaybeUninit,
-)
+from std.memory import ArcPointer, MaybeUninit, OwnedPointer
 from std.os import abort
+from std.traits import IsTriviallyDeinitable
 
 from mojopt.parser import Parser, ParseOptions
 from mojopt.error import MojOptErr, DisplayHelp
@@ -18,7 +13,6 @@ from mojopt.help import get_help
 
 comptime non_struct_error = "Cannot deserialize non-struct type"
 comptime _Base = Deinitable & Movable
-comptime _MaybeUninit[T: Movable]: Movable = UnsafeMaybeUninit[T]
 
 
 trait MojOptDeserializable(_Base):
@@ -245,7 +239,7 @@ def __is_opt[T: AnyType]() -> Bool:
 
 
 def __all_dtors_are_trivial[T: AnyType]() -> Bool:
-    return is_trivially_deletable[T]()
+    return IsTriviallyDeinitable[T]
 
 
 def __to_ident(s: String) -> String:
@@ -784,7 +778,9 @@ __extension Array(MojOptDeserializable):
             options.parsing_mode != ParseOptions.ParsingOptions
         ), "Cannot use fixed-size container as an option"
 
-        var storage = Array[UnsafeMaybeUninit[Self.T], Self.length](uninitialized=True)
+        # Keep the whole array uninitialized, so element types need not be trivially movable.
+        var storage = MaybeUninit[Self]()
+        var elements = storage.unsafe_ptr().unsafe_bitcast[Self.T]()
         var initialized = 0
 
         comptime if (
@@ -796,18 +792,22 @@ __extension Array(MojOptDeserializable):
                 comptime for i in range(Self.length):
                     if p.is_done():
                         raise Error(t"Found {i} values, expected {Self.length}")
-                    storage[i].init_from(_deserialize_impl[Self.T](p))
+                    elements.unsafe_offset(i).unsafe_write(_deserialize_impl[Self.T](p))
                     initialized += 1
             except e:
+                # Only the initialized prefix contains live values to destroy.
                 for i in range(initialized):
-                    storage[i].unsafe_assume_init_destroy()
+                    elements.unsafe_offset(i).unsafe_deinit_pointee()
+                storage^.unsafe_forget()
                 raise e^
         elif options.parsing_mode == ParseOptions.ParsingOptions:
+            storage^.unsafe_forget()
             raise Error("Cannot use fixed-size container as an option")
         else:
+            storage^.unsafe_forget()
             abort(t"Unknown parse mode: {options.parsing_mode}")
 
-        s = Self(unsafe_assume_initialized=storage^)
+        s = storage^.unsafe_assume_init()
 
     @staticmethod
     def description() -> String:
@@ -821,21 +821,16 @@ __extension Array(MojOptDeserializable):
 __extension Tuple(MojOptDeserializable):
     @staticmethod
     def from_opts[options: ParseOptions, //](mut p: Parser[options], out s: Self) raises MojOptErr:
-        comptime assert Self.element_types.all_conforms_to[Deinitable]()
+        comptime assert Self.Ts.all_conforms_to[Deinitable]()
         comptime assert (
             options.parsing_mode != ParseOptions.ParsingOptions
         ), "Cannot use fixed-size container as an option"
 
-        comptime StorageTypes = Self.element_types.map[_MaybeUninit]()
-        comptime assert StorageTypes.all_conforms_to[Defaultable]()
-        comptime assert StorageTypes.all_conforms_to[Deinitable]()
-        var storage: Tuple[*StorageTypes]
-        __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(storage))
+        # Initialize elements in place and explicitly clean up only the live prefix.
+        # This avoids moving MaybeUninit wrappers or needing a legacy cleanup closure.
+        var storage = MaybeUninit[Self]()
+        var elements = storage.unsafe_ptr()
         var initialized = 0
-
-        @parameter
-        def deinit_storage[idx: Int](var element: StorageTypes[idx]):
-            forget_deinit(element^)
 
         comptime if (
             options.parsing_mode == ParseOptions.ParsingArguments
@@ -844,34 +839,26 @@ __extension Tuple(MojOptDeserializable):
             try:
                 # If we are argument parsing, consume all the values possible
                 comptime for i in range(Self.__len__()):
-                    comptime ElementType = Self.element_types[i]
+                    comptime ElementType = Self.Ts[i]
                     comptime assert conforms_to(ElementType, _Base)
                     if p.is_done():
                         raise Error(t"Found {i} values, expected {Self.__len__()}")
-                    ref slot = rebind[UnsafeMaybeUninit[ElementType]](storage[i])
-                    slot.init_from(_deserialize_impl[ElementType](p))
+                    Pointer(to=elements[][i]).unsafe_write(_deserialize_impl[ElementType](p))
                     initialized += 1
             except e:
                 comptime for i in range(Self.__len__()):
                     if i < initialized:
-                        comptime ElementType = Self.element_types[i]
-                        ref slot = rebind[UnsafeMaybeUninit[ElementType]](storage[i])
-                        slot.unsafe_assume_init_destroy()
-                storage^.deinit_with[deinit_storage]()
+                        Pointer(to=elements[][i]).unsafe_deinit_pointee()
+                storage^.unsafe_forget()
                 raise e^
         elif options.parsing_mode == ParseOptions.ParsingOptions:
-            storage^.deinit_with[deinit_storage]()
+            storage^.unsafe_forget()
             raise Error("Cannot use fixed-size container as an option")
         else:
-            storage^.deinit_with[deinit_storage]()
+            storage^.unsafe_forget()
             abort(t"Unknown parse mode: {options.parsing_mode}")
 
-        __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(s))
-        comptime for i in range(Self.__len__()):
-            comptime ElementType = Self.element_types[i]
-            ref slot = rebind[UnsafeMaybeUninit[ElementType]](storage[i])
-            Pointer(to=s[i]).unsafe_write(slot.unsafe_assume_init_take())
-        storage^.deinit_with[deinit_storage]()
+        s = storage^.unsafe_assume_init()
 
     @staticmethod
     def description() -> String:

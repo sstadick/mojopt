@@ -2,33 +2,33 @@ name: Test
 on: [push, pull_request]
 jobs:
     test:
-        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                os: [ubuntu-latest, ubuntu-24.04-arm, macos-14]
+        runs-on: ${{ matrix.os }}
 
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
 
-            - name: Install pixi CLI
-              run: |
-                  curl -fsSL https://pixi.sh/install.sh | sh
-                  export PATH="/home/runner/.pixi/bin:$PATH"
+            - name: Install Pixi
+              uses: prefix-dev/setup-pixi@v0.10.1
+              with:
+                  pixi-version: v0.80.0
+                  cache: true
+                  locked: true
 
-            - name: Install dependencies and build
+            - name: Check formatting
               run: |
-                  export PATH="/home/runner/.pixi/bin:$PATH"
-                  pixi install --locked
+                  pixi run lint
+                  git diff --exit-code
 
-            - name: Run lint - pixi run lint
-              run: |
-                  export PATH="/home/runner/.pixi/bin:$PATH"
-                  if pixi run lint 2>&1 | grep -E "reformatted|error|failed" ; then echo "Formatter failed" ; exit 1 ; else echo "Formatting OK"; fi
+            - name: Run tests
+              run: pixi run t
 
-            - name: Run tests - pixi run t
-              run: |
-                  export PATH="/home/runner/.pixi/bin:$PATH"
-                  pixi run t
+            - name: Run examples
+              run: pixi run examples
 
-            - name: Run examples - pixi run examples
-              run: |
-                  export PATH="/home/runner/.pixi/bin:$PATH"
-                  pixi run examples
+            - name: Build package
+              run: pixi publish --path . --target-dir dist
