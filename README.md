@@ -14,6 +14,10 @@ A Mojo library for parsing CLI args based on the Rust Structopt crate.
 MojOpt 0.5.0 targets **Mojo 1.1.0**. Use the stable
 `https://conda.modular.com/max` channel for Mojo.
 
+The `nightly` branch instead pins **Mojo 1.3.0.dev2026110505** from
+`https://conda.modular.com/max-nightly`. When working from this branch, use
+`pixi install --locked` to install its exact compiler and dependencies.
+
 From Modular Community:
 
 ```bash
