@@ -21,19 +21,21 @@ backend = { name = "pixi-build-mojo", version = "0.*", channels = [
 ] }
 
 [package.host-dependencies]
-mojo-compiler = "==1.1.0"
+mojo-compiler = "==1.2.0"
 
 [package.build-dependencies]
-mojo-compiler = "==1.1.0"
+mojo-compiler = "==1.2.0"
 
 [package.run-dependencies]
-mojo-compiler = "==1.1.0"
+mojo-compiler = "==1.2.0"
 
 [tasks]
 r = "mojo run main.mojo"
-t = { cmd = "sh -c 'find ./tests -name test_*.mojo | xargs -I % mojo run -I . -D ASSERT=all %'" }
+t = { cmd = "sh -c 'files=$(find ./tests -name test_*.mojo); test -n \"$files\" || exit 1; for file in $files; do mojo run -I . -D ASSERT=all \"$file\" || exit $?; done'" }
 examples = { cmd = "sh -c 'find ./examples -name *.mojo | xargs -I % mojo run -I . -D ASSERT=all % --help'" }
-lint = { cmd = "mojo format --line-length 100 mojopt/* tests/* examples/* scripts/*" }
+lint = { cmd = "mojo format --line-length 100 mojopt/*.mojo tests/*.mojo examples/*.mojo scripts/*.mojo" }
+format = { depends-on = ["lint"] }
+check-consumer = "python3 scripts/consumer.py"
 gen_examples = """
 mojo run -I . scripts/generate_readme_examples.mojo --program ./examples/simple.mojo --section-header '## Simple' &&
 mojo run -I . scripts/generate_readme_examples.mojo --program ./examples/getting_started.mojo --section-header '## Getting Started' && 
@@ -43,9 +45,9 @@ mojo run -I . scripts/generate_readme_examples.mojo --program ./examples/subcomm
 [target.linux-64.tasks]
 # GitHub AMD runners can select AVX512 features that the host does not expose.
 # Keep linux-64 test/example runs on the same host CPU, but explicitly disable AVX512.
-t = { cmd = "sh -c 'find ./tests -name test_*.mojo | xargs -I % mojo run --target-features=-avx512f,-avx512bw,-avx512cd,-avx512dq,-avx512vl,-avx512ifma,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512fp16,-avx512bf16 -I . -D ASSERT=all %'" }
+t = { cmd = "sh -c 'files=$(find ./tests -name test_*.mojo); test -n \"$files\" || exit 1; for file in $files; do mojo run --target-features=-avx512f,-avx512bw,-avx512cd,-avx512dq,-avx512vl,-avx512ifma,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512fp16,-avx512bf16 -I . -D ASSERT=all \"$file\" || exit $?; done'" }
 examples = { cmd = "sh -c 'find ./examples -name *.mojo | xargs -I % mojo run --target-features=-avx512f,-avx512bw,-avx512cd,-avx512dq,-avx512vl,-avx512ifma,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512fp16,-avx512bf16 -I . -D ASSERT=all % --help'" }
 
 [dependencies]
-mojo = "==1.1.0"
+mojo = "==1.2.0"
 # mojopt = { path = "." }

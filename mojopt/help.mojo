@@ -1,6 +1,14 @@
-from mojopt.deserialize import MojOptDeserializable, Optable, _Base, __is_opt, __to_display_name
+from mojopt.deserialize import (
+    MojOptDeserializable,
+    Optable,
+    _Base,
+    __is_opt,
+    __to_display_name,
+    _choices_for,
+)
 
 from std.builtin.rebind import downcast
+from std.builtin._enum import __Enum
 
 
 def get_help[T: _Base, indent_level: Int = 1]() -> String:
@@ -48,7 +56,9 @@ def get_help[T: _Base, indent_level: Int = 1]() -> String:
                 )
                 comptime appendable = String("...") if optlike.opt_is_appendable else String("")
                 comptime fixed_help = optlike.opt_help.replace("\n", "    \n")
-                comptime desc_line = t"    {fixed_help}"
+                comptime choices = _choices_for[field_type]()
+                comptime choice_help = String(t" [choices: {choices}]") if choices else String("")
+                comptime desc_line = t"    {fixed_help}{choice_help}"
 
                 comptime if optlike.opt_is_arg:
                     comptime details_line = String(
@@ -56,16 +66,26 @@ def get_help[T: _Base, indent_level: Int = 1]() -> String:
                     )
                     arguments.append(materialize[String(details_line) + String(desc_line)]())
                 else:
+                    comptime value_help = String("") if optlike.opt_is_flag else String(
+                        t"={long_name.upper()}{appendable}"
+                    )
                     comptime details_line = String(
-                        t"  {short_name}--{long_name} {long_name.upper()}{appendable}{default}\n"
+                        t"  {short_name}--{long_name}{value_help}{default}\n"
                     )
                     options.append(materialize[String(details_line) + String(desc_line)]())
             else:
+                comptime choices = _choices_for[field_type]()
+                comptime choice_help = String(t" [choices: {choices}]") if choices else String("")
+                comptime value_help = String("") if field_type == Bool else String(
+                    t"={field_name.upper()}"
+                )
                 comptime long_name = String(
-                    t"  --{__to_display_name(field_name)} {field_name.upper()} [Required]"
+                    t"  --{__to_display_name(field_name)}{value_help} [Required]{choice_help}"
                 )
                 options.append(materialize[long_name]())
 
+        comptime if conforms_to(field_type, __Enum):
+            continue
         comptime if conforms_to(field_type, MojOptDeserializable) and not downcast[
             field_type, MojOptDeserializable
         ]._derive_help():
@@ -81,6 +101,8 @@ def get_help[T: _Base, indent_level: Int = 1]() -> String:
             options.append(line)
 
     var final_list: List[String] = [description]
+    comptime if indent_level == 1 and not __is_opt[T]():
+        options.append("  -h, --help\n    Show this help message")
     if len(arguments) > 0:
         if not __is_opt[T]():
             final_list.append("Arguments:")
