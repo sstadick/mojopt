@@ -21,15 +21,18 @@ struct ParseOptions(Equatable, TrivialRegisterPassable):
 struct Parser[options: ParseOptions = ParseOptions()]:
     var cursor: Int
     var data: List[String]
+    var _attached: Optional[String]
 
     def __init__(out self):
         self.cursor = 0
         # Skip the first arg as it's the program name.
         self.data = [String(s) for s in argv()[1:]]
+        self._attached = None
 
     def __init__(out self, var args: List[String]):
         self.cursor = 0
         self.data = args^
+        self._attached = None
 
     @staticmethod
     def parse[T: MojOptDeserializable]() raises MojOptErr -> T:
@@ -42,18 +45,20 @@ struct Parser[options: ParseOptions = ParseOptions()]:
         return T.from_opts(parser)
 
     def is_done(self) -> Bool:
-        return self.cursor == len(self.data)
+        return not self._attached and self.cursor == len(self.data)
 
-    def _get_next(mut self) -> String:
-        debug_assert(
-            self.cursor < len(self.data),
-            "Parser cursor has gone past end of data.",
-        )
+    def _get_next(mut self) raises -> String:
+        if self._attached:
+            var value = self._attached.value()
+            self._attached = None
+            return value
+        if self.is_done():
+            raise Error("Missing option value")
         var value = self.data[self.cursor]
         self.cursor += 1
         return value
 
-    def read_string(mut self) -> String:
+    def read_string(mut self) raises -> String:
         # TODO: return ref
         return self._get_next()
 

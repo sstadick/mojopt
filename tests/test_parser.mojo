@@ -9,7 +9,7 @@ from std.testing import (
 from mojopt.default import reflection_default
 from mojopt.deserialize import MojOptDeserializable, Opt, get_help
 from mojopt.parser import Parser, ParseOptions
-from mojopt.error import MojOptErr
+from mojopt.error import MojOptErr, DisplayHelp
 
 from mojopt.ext import *
 
@@ -811,6 +811,325 @@ def test_nested_tuple() raises:
     assert_equal(args.item.value[1], "foobar")
     assert_equal(args.item.value[2][0], 2)
     assert_equal(args.item.value[2][1], "cats")
+
+
+__enum Mode(ImplicitlyCopyable):
+    case fast
+    case Careful
+    case dry_run
+
+
+@fieldwise_init
+struct ChoiceArgs(Defaultable, MojOptDeserializable):
+    var mode: Opt[Mode, short="m", default_value=["Careful"]]
+    var modes: Opt[List[Mode], short="M", default_value=["fast", "dry_run"]]
+
+    def __init__(out self):
+        self.mode = {Mode.fast}
+        self.modes = {[]}
+
+
+def test_enum_choices() raises:
+    var args = Parser.parse[ChoiceArgs](["--mode=dry_run", "-Mfast", "--modes=Careful", "-Mfast"])
+    assert_equal(args.mode.value._get_enum_discriminant(), 2)
+    assert_true(args.mode.provided)
+    assert_equal(len(args.modes.value), 3)
+    assert_equal(args.modes.value[0]._get_enum_discriminant(), 0)
+    assert_equal(args.modes.value[1]._get_enum_discriminant(), 1)
+    assert_equal(args.modes.value[2]._get_enum_discriminant(), 0)
+    var defaults = Parser.parse[ChoiceArgs]([])
+    assert_equal(defaults.mode.value._get_enum_discriminant(), 1)
+    assert_false(defaults.mode.provided)
+    assert_false(defaults.modes.provided)
+    for invalid in ["careful", "FAST", "dry-run", "", "unknown"]:
+        with assert_raises(contains="Expected one of [fast, Careful, dry_run]"):
+            var _ = Parser.parse[ChoiceArgs]([String("--mode=", invalid)])
+    var help = get_help[ChoiceArgs]()
+    assert_true("[choices: fast, Careful, dry_run]" in help)
+    assert_true("--modes=MODES..." in help)
+
+
+@fieldwise_init
+struct Forms(Defaultable, MojOptDeserializable):
+    var verbose: Opt[Bool, short="v", default_value=["true"]]
+    var quiet: Opt[Bool, short="q", defaultable=True]
+    var name: Opt[String, short="n", default_value=["default"]]
+    var count: Opt[Int, short="c", default_value=["7"]]
+    var include: Opt[List[String], short="I", default_value=["default-path"]]
+    var unique: Opt[Set[Int], short="u", default_value=["8"]]
+    var files: Opt[List[String], is_arg=True, default_value=["default-file"]]
+
+    def __init__(out self):
+        self.verbose = {False}
+        self.quiet = {False}
+        self.name = {""}
+        self.count = {0}
+        self.include = {["stale"]}
+        self.unique = {{99}}
+        self.files = {[]}
+        self.name.provided = True
+        self.count.provided = True
+        self.verbose.provided = True
+        self.files.provided = True
+
+
+def test_long_equals_and_presence() raises:
+    var args = Parser.parse[Forms](["--name=a=b", "--count=-23", "--verbose=false"])
+    assert_equal(args.name.value, "a=b")
+    assert_equal(args.count.value, -23)
+    assert_false(args.verbose.value)
+    assert_true(args.name.provided)
+    assert_true(args.count.provided)
+    assert_true(args.verbose.provided)
+    assert_false(args.quiet.provided)
+    assert_false(args.include.provided)
+    assert_false(args.files.provided)
+    var empty = Parser.parse[Forms](["--name=", "--count=0", "--verbose=false"])
+    assert_equal(empty.name.value, "")
+    assert_equal(empty.count.value, 0)
+    assert_true(empty.name.provided)
+    assert_true(empty.count.provided)
+    assert_true(empty.verbose.provided)
+    var defaults = Parser.parse[Forms]([])
+    assert_equal(defaults.name.value, "default")
+    assert_equal(defaults.count.value, 7)
+    assert_true(defaults.verbose.value)
+    assert_false(defaults.name.provided)
+    assert_false(defaults.count.provided)
+    assert_false(defaults.verbose.provided)
+    assert_false(defaults.files.provided)
+    var explicit_defaults = Parser.parse[Forms](["--name=default", "--count=7", "default-file"])
+    assert_true(explicit_defaults.name.provided)
+    assert_true(explicit_defaults.count.provided)
+    assert_true(explicit_defaults.files.provided)
+
+
+def test_short_bundles_and_attached_values() raises:
+    var args = Parser.parse[Forms](["-qvvc-6", "-nAda Lovelace", "-I=literal"])
+    assert_true(args.verbose.value)
+    assert_true(args.quiet.value)
+    assert_equal(args.count.value, -6)
+    assert_equal(args.name.value, "Ada Lovelace")
+    assert_equal(args.include.value, ["=literal"])
+    var separated = Parser.parse[Forms](["-vqc", "19", "-n", "", "-I", "--help"])
+    assert_true(separated.quiet.value)
+    assert_equal(separated.count.value, 19)
+    assert_equal(separated.name.value, "")
+    assert_equal(separated.include.value, ["--help"])
+    assert_true(separated.name.provided)
+    with assert_raises(contains="Can't parse -c"):
+        var _ = Parser.parse[Forms](["-vc=4"])
+    with assert_raises(contains="Unknown option: -="):
+        var _ = Parser.parse[Forms](["-v=true"])
+
+
+def test_scalar_last_wins_and_flags_set_true() raises:
+    var args = Parser.parse[Forms](
+        [
+            "--name=first",
+            "-nsecond",
+            "--name",
+            "",
+            "--count",
+            "2",
+            "-c9",
+            "--verbose=false",
+            "-vv",
+            "--quiet",
+            "--quiet=false",
+        ]
+    )
+    assert_equal(args.name.value, "")
+    assert_equal(args.count.value, 9)
+    assert_true(args.verbose.value)
+    assert_false(args.quiet.value)
+    assert_true(args.quiet.provided)
+    var bare = Parser.parse[BoolTest](["--item=false", "--item", "--item"])
+    assert_true(bare.item)
+
+
+def test_collection_repeats_replace_defaults() raises:
+    var args = Parser.parse[Forms](
+        [
+            "-vIsrc",
+            "--include",
+            "test files",
+            "--include=src",
+            "-I",
+            "",
+            "-u3",
+            "--unique=1",
+            "-u3",
+            "file1",
+            "file1",
+            "",
+        ]
+    )
+    assert_equal(args.include.value, ["src", "test files", "src", ""])
+    assert_equal(args.unique.value, {1, 3})
+    assert_equal(args.files.value, ["file1", "file1", ""])
+    assert_true(args.include.provided)
+    assert_true(args.unique.provided)
+    assert_true(args.files.provided)
+    var defaults = Parser.parse[Forms]([])
+    assert_equal(defaults.include.value, ["default-path"])
+    assert_equal(defaults.files.value, ["default-file"])
+    assert_false(defaults.include.provided)
+
+
+def test_terminator_and_literal_help_values() raises:
+    var args = Parser.parse[Forms](
+        ["-qn--help", "--count", "-3", "--", "--verbose=false", "-h", "--", "name"]
+    )
+    assert_equal(args.name.value, "--help")
+    assert_equal(args.count.value, -3)
+    assert_equal(args.files.value, ["--verbose=false", "-h", "--", "name"])
+    assert_true(args.verbose.value)
+    assert_false(args.verbose.provided)
+    for value in ["--", "--help", "-h", "--quiet"]:
+        var literal = Parser.parse[Forms](["--name", value])
+        assert_equal(literal.name.value, value)
+        assert_false(literal.quiet.value)
+    var bare_flag = Parser.parse[Forms](["--quiet", "false"])
+    assert_true(bare_flag.quiet.value)
+    assert_equal(bare_flag.files.value, ["false"])
+    var negatives = Parser.parse[Forms](["-12", "-"])
+    assert_equal(negatives.files.value, ["-12", "-"])
+
+
+def test_strict_explicit_bool_values() raises:
+    for value in ["", "True", "FALSE", "t", "f", "0", "1", "yes", "false ", "--help"]:
+        with assert_raises(contains="expected bool (true or false)"):
+            var _ = Parser.parse[Forms]([String("--verbose=", value)])
+
+
+def test_missing_and_malformed_values() raises:
+    for option in ["--name", "--count", "-n", "-vc", "--include", "-vI"]:
+        with assert_raises(contains="Missing option value"):
+            var _ = Parser.parse[Forms]([option])
+    for value in ["", "12x", "1.5", "9223372036854775808", "-9223372036854775809"]:
+        with assert_raises(contains="Can't parse --count"):
+            var _ = Parser.parse[Forms]([String("--count=", value)])
+    var maximum = Parser.parse[Forms](["--count=9223372036854775807"])
+    assert_equal(maximum.count.value, 9223372036854775807)
+    var minimum = Parser.parse[Forms](["--count=-9223372036854775808"])
+    assert_equal(minimum.count.value, -9223372036854775808)
+    with assert_raises(contains="Can't parse --item"):
+        var _ = Parser.parse[FloatTest](["--item=3.5x"])
+
+
+def test_help_and_error_order() raises:
+    var help_cases: List[List[String]] = [
+        ["--help", "--missing"],
+        ["-vqhx"],
+        ["-h", "--count=bad"],
+        ["--help", "--help"],
+    ]
+    for args in help_cases:
+        var helped = False
+        try:
+            var _ = Parser.parse[Forms](args.copy())
+        except e:
+            assert_true(e.isa[DisplayHelp]())
+            helped = True
+        assert_true(helped)
+    var unknown_cases: List[List[String]] = [["--missing", "--help"], ["-vxh"]]
+    for args in unknown_cases:
+        with assert_raises(contains="Unknown option"):
+            var _ = Parser.parse[Forms](args.copy())
+    var invalid_cases: List[List[String]] = [
+        ["--count=bad", "--help"],
+        ["-vcbad", "-h"],
+        ["--count", "--help"],
+    ]
+    for args in invalid_cases:
+        with assert_raises(contains="Can't parse"):
+            var _ = Parser.parse[Forms](args.copy())
+    with assert_raises(contains="Unknown option"):
+        var _ = Parser.parse[Forms](["--help=false", "--help"])
+    var help = get_help[Forms]()
+    assert_true("-h, --help" in help)
+    assert_true("--include=INCLUDE..." in help)
+    assert_false("--verbose=" in help)
+    assert_false("--quiet=" in help)
+    assert_false("--files" in help)
+
+
+@fieldwise_init
+struct RequiredPresence(Defaultable, MojOptDeserializable):
+    var count: Opt[Int]
+
+    def __init__(out self):
+        self.count = {42}
+        self.count.provided = True
+
+
+def test_stale_presence_does_not_satisfy_required() raises:
+    with assert_raises(contains="Missing required option: --count"):
+        var _ = Parser.parse[RequiredPresence]([])
+    var supplied = Parser.parse[RequiredPresence](["--count=0"])
+    assert_true(supplied.count.provided)
+    assert_equal(supplied.count.value, 0)
+
+
+def test_attached_custom_and_nested_values() raises:
+    var custom = Parser.parse[Args](["--my-custom=John", "Doe"])
+    assert_equal(custom.my_custom.value, CustomType("John", "Doe"))
+    assert_true(custom.my_custom.provided)
+    var nested = Parser.parse[ArgsBareType](
+        [
+            "--my-num=4",
+            "--complex",
+            "--animal=dragon",
+            "--thing=table",
+            "100",
+        ]
+    )
+    assert_equal(nested.complex.value.animal, "dragon")
+    assert_equal(nested.complex.value.many.value, [100])
+    assert_true(nested.complex.provided)
+    assert_true(nested.complex.value.many.provided)
+    var defaults = Parser.parse[ArgsBareType](["--my-num=0"])
+    assert_false(defaults.complex.provided)
+    assert_false(defaults.complex.value.many.provided)
+    var helped = False
+    try:
+        var _ = Parser.parse[ArgsBareType](["--complex", "--help", "--missing"])
+    except e:
+        assert_true(e.isa[DisplayHelp]())
+        assert_true("--animal=ANIMAL" in e[DisplayHelp].help)
+        helped = True
+    assert_true(helped)
+
+
+@fieldwise_init
+struct PositionalChoice(Defaultable, MojOptDeserializable):
+    var named: Mode
+    var positional: Opt[Mode, is_arg=True]
+
+    def __init__(out self):
+        self.named = Mode.fast
+        self.positional = {Mode.fast}
+
+
+def test_bare_and_positional_enums() raises:
+    var args = Parser.parse[PositionalChoice](["Careful", "--named=dry_run"])
+    assert_equal(args.named._get_enum_discriminant(), 2)
+    assert_equal(args.positional.value._get_enum_discriminant(), 1)
+    assert_true(args.positional.provided)
+    with assert_raises(contains="Missing required argument"):
+        var _ = Parser.parse[PositionalChoice](["--named=fast"])
+    with assert_raises(contains="Expected one of [fast, Careful, dry_run]"):
+        var _ = Parser.parse[PositionalChoice](["FAST", "--named=Careful"])
+    assert_true("[choices: fast, Careful, dry_run]" in get_help[PositionalChoice]())
+
+
+def test_names_and_normalization() raises:
+    var args = Parser.parse[Args](["--my_custom", "John", "Doe", "--my_string=value"])
+    assert_equal(args.my_string.value, "value")
+    var overridden = Parser.parse[ArgsBare](["--my_int=8", "-cpath"])
+    assert_equal(overridden.my_int, 8)
+    assert_equal(overridden.complex.value, ["path"])
 
 
 def main() raises:
