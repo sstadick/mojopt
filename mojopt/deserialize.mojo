@@ -908,6 +908,8 @@ __extension Tuple(MojOptDeserializable):
     @staticmethod
     def from_opts[options: ParseOptions, //](mut p: Parser[options], out s: Self) raises MojOptErr:
         comptime assert Self.Ts.all_conforms_to[Deinitable]()
+        # Prove the whole tuple is movable before extracting it from MaybeUninit.
+        comptime assert Self.Ts.all_conforms_to[Movable]()
         comptime assert (
             options.parsing_mode != ParseOptions.ParsingOptions
         ), "Cannot use fixed-size container as an option"

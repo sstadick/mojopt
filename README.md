@@ -5,8 +5,14 @@ structs. MojOpt parses typed values and generates help from your field descripti
 
 ## Install
 
-This checkout requires **Mojo 1.2.0** from the stable
+The `main` branch requires **Mojo 1.2.0** from the stable
 `https://conda.modular.com/max` channel.
+
+This `nightly` checkout instead pins **Mojo 1.3.0.dev2026111105** from
+`https://conda.modular.com/max-nightly`. When working from this branch, use
+`pixi install --locked` to install its exact compiler and dependencies.
+
+From Modular Community:
 
 ```sh
 pixi add mojopt
