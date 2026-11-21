@@ -61,6 +61,26 @@ def test_resource_tuple() raises:
     assert_equal(values[2].value[], "three")
 
 
+def test_nested_resource_tuple() raises:
+    # Movability must be proven for the entire heterogeneous, nested type pack.
+    var parser = Arguments(["one", "42", "two", "three", "remaining"])
+    var values = Tuple[Resource, Tuple[Int, Resource], String].from_opts(parser)
+    assert_equal(values[0].value[], "one")
+    assert_equal(values[1][0], 42)
+    assert_equal(values[1][1].value[], "two")
+    assert_equal(values[2], "three")
+    assert_equal(parser.read_string(), "remaining")
+
+
+def test_nested_resource_tuple_errors() raises:
+    var too_short = Arguments(["one", "42"])
+    with assert_raises(contains="Found 1 values, expected 2"):
+        var _ = Tuple[Resource, Tuple[Int, Resource], String].from_opts(too_short)
+    var invalid = Arguments(["one", "42", "bad"])
+    with assert_raises(contains="Invalid resource"):
+        var _ = Tuple[Resource, Tuple[Int, Resource], String].from_opts(invalid)
+
+
 def test_resource_tuple_cleanup() raises:
     for prefix in range(3):
         var args = List[String]()

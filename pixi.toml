@@ -3,7 +3,7 @@
 authors = ["Seth Stadick <sstadick@gmail.com>"]
 channels = [
     "https://prefix.dev/conda-forge",
-    "https://conda.modular.com/max",
+    "https://conda.modular.com/max-nightly",
     "https://repo.prefix.dev/modular-community",
 ]
 platforms = ["linux-64", "linux-aarch64", "osx-arm64"]
@@ -21,13 +21,13 @@ backend = { name = "pixi-build-mojo", version = "0.*", channels = [
 ] }
 
 [package.host-dependencies]
-mojo-compiler = "==1.2.0"
+mojo-compiler = "==1.3.0.dev2026111105"
 
 [package.build-dependencies]
-mojo-compiler = "==1.2.0"
+mojo-compiler = "==1.3.0.dev2026111105"
 
 [package.run-dependencies]
-mojo-compiler = "==1.2.0"
+mojo-compiler = "==1.3.0.dev2026111105"
 
 [tasks]
 r = "mojo run main.mojo"
@@ -49,5 +49,5 @@ t = { cmd = "sh -c 'files=$(find ./tests -name test_*.mojo); test -n \"$files\" 
 examples = { cmd = "sh -c 'find ./examples -name *.mojo | xargs -I % mojo run --target-features=-avx512f,-avx512bw,-avx512cd,-avx512dq,-avx512vl,-avx512ifma,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512fp16,-avx512bf16 -I . -D ASSERT=all % --help'" }
 
 [dependencies]
-mojo = "==1.2.0"
+mojo = "==1.3.0.dev2026111105"
 # mojopt = { path = "." }
